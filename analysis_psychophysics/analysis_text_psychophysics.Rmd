@@ -1,0 +1,629 @@
+---
+title: "Manuscript Text: Using new values, post-revision submission, now with fminsearch"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+library('psych')
+library('tidyr')
+library('rstatix')
+library('lm.beta')
+library('kableExtra')
+library('effectsize')
+
+# paths
+usrPath <- '/Users/bear/Downloads' # change to your local
+wdPath <- file.path(usrPath, 'dynamic_contrast', 'analysis_psychophysics')
+fitPath <- file.path(usrPath, 'dynamic_contrast', 'fitdata_psychophysics',
+                     'psychophysics_fits.csv')
+funcPath <- file.path(usrPath, 'dynamic_contrast', 'r_helper_functions.R')
+# sourcing r_helper_functions has all the functions needed for analysis,
+# also sets plot colors/pchs
+
+setwd(wdPath)
+source(funcPath)
+
+load('descriptives_psychophysics.RData')
+# loads data frame called, imaginatively, data
+
+fitdata <- read.csv(fitPath)
+data <- merge(data,fitdata, by = 'sID')
+data$group <- factor(data$group)
+
+# map between left/right and amb/fellow
+data[,c('acuityAE', 'acuityFE')] <- map2amb(data$acuityLE, data$acuityRE, data$AE)
+data[,c('AULCSF_AE', 'AULCSF_FE')] <- map2amb(data$l.AULCSF, data$r.AULCSF, data$AE)
+data[,c('sens2cpd_AE', 'sens2cpd_FE')] <- map2amb(data$l.sens2cpd, data$r.sens2cpd, data$AE)
+data[,c('LS', 'LS_fellow')] <- map2amb(data$LS_LE, data$LS_RE, data$AE)
+
+data$IODacuity <- abs(data$acuityAE - data$acuityFE)
+
+# bino summation/inhibition:  best minus bino (negative = inhibition, positive = summation)
+data$bino_acuity_summation = apply(
+  data[,c('acuityLE', 'acuityRE')], 1, FUN=min) - data$acuityBE
+
+data$AULCSF_summation = data$b.AULCSF / apply(data[,c('AULCSF_AE', 'AULCSF_FE')], 1, FUN=max)
+
+
+# clean descriptives not used in analysis - remove from this list to keep
+data <- subset(data, select = -c(
+               animals, shapes, diff_proportion,
+               LE_1cpd, RE_1cpd,
+               LE_2cpd, RE_2cpd,
+               LE_4cpd, RE_4cpd,
+               LE_8cpd, RE_8cpd,
+               LS_fellow,
+               l.AULCSF, r.AULCSF,
+               b.peakgain, l.peakgain, r.peakgain,
+               b.peakfreq, l.peakfreq, r.peakfreq,
+               b.bandwidth, l.bandwidth, r.bandwidth,
+               b.truncation, l.truncation, r.truncation,
+               l.sens2cpd, r.sens2cpd,
+               b.highSFcutoff, l.highSFcutoff, r.highSFcutoff,
+               LS_RE, LS_LE))
+
+# clean workspace
+rm(fitdata)
+```
+
+
+## Section 2: Results
+
+
+### 2.3 Stage 2: Monocular attenuation
+```{r, include=FALSE}
+kae_means <- printMeansAndSDs(data$kAE, data$group, 2)
+kae_ttest <- printTTestResult(data$kAE, data$group)
+```
+As shown in Figure 3A and Table 1, k~AE~ was significantly lower in observers with amblyopia than in controls (`r kae_ttest[[2]]`), though it is worth noting that there was significant individual variability in participants with amblyopia.
+
+### 2.4 Stage 3: Binocular interactions
+```{r, echo=FALSE}
+# remove the outying value of 34
+data$uAE[data$uAE>33] <- NA
+uae_means <- printMeansAndSDs(data$uAE, data$group, 2)
+ufe_means <- printMeansAndSDs(data$uFE, data$group, 2)
+u_stats <- printAnovaByEyeTable(data, c('uAE', 'uFE'))
+
+# near-zero defined as 0.01
+n <- summary(data$group)
+n_uAE_zero <- summary(data$group[data$uAE < 0.01])
+n_uFE_zero <- summary(data$group[data$uFE < 0.01])
+```
+
+As shown in Figure 3B, and Table 1, there was a significant group by eye interaction (`r u_stats[[4]]`), driven by significantly lower U~FE~ (less suppression of the fellow by the amblyopic eye) in observers with amblyopia compared to controls (`r u_stats[[6]]`): suggesting that the amblyopic eye contributed weakly to contrast normalization in the fellow eye. Interestingly, `r n_uFE_zero["AM"]` (`r round(n_uFE_zero["AM"]/n["AM"] * 100)`%) participants with amblyopia and `r n_uFE_zero["BD"]` (`r round(n_uFE_zero["BD"]/n["BD"] * 100)`%) participants with strabsimus have values of zero or near-zero for U~FE~, a phenomenon not demonstrated to the same extent by participants in the control group. U~AE~ (suppression of the amblyopic by the fellow eye) was not statistically different between the groups (`r u_stats[[5]]`). Thus, in our model the effects of amblyopia on binocular interactions were predominantly described by the amblyopic eye failing to contribute to contrast normalization in the fellow eye, though many participants with amblyopia also obtained near-zero values for this parameter (`r n_uAE_zero["AM"]` or `r round(n_uAE_zero["AM"]/n["AM"] * 100)`%), unlike the strabismus-only group. 
+
+```{r}
+kAEuAEcor <- cor.test(data$uAE, data$kAE)
+kAEuAEcor_AM <- cor.test(data$uAE[data$group=='AM'], data$kAE[data$group=='AM'])
+```
+However the correlation between attenuation (k_AE) and suppression (AE) across all participants was r = `r round(kAEuAEcor$estimate,2)`, t(`r kAEuAEcor$parameter`) = `r abs(round(kAEuAEcor$statistic,2))`, p = `r round(kAEuAEcor$p.value,2)`; and within the amblyopia group only, this was r = `r round(kAEuAEcor_AM$estimate,2)`, t(`r kAEuAEcor_AM$parameter`) = `r abs(round(kAEuAEcor_AM$statistic,2))`, p = `r round(kAEuAEcor_AM$p.value,2)`. 
+
+### Data for Table 1
+```{r, include=FALSE}
+sigma_means <- printMeansAndSDs(data$sigma, data$group, 2)
+sigma_ttest <- printTTestResult(data$sigma, data$group)
+
+mse_means <- printMeansAndSDs(data$softmaxErr, data$group, 3)
+mse_ttest <- printTTestResult(data$softmaxErr, data$group)
+```
+Table 1: Monocular attenuation and binocular interactions. Mean (SD) values are shown.
+
+k~AE~:
+
+  * `r kae_means[1]`
+  * `r kae_means[2]`
+    - Amblyopia vs. controls: `r kae_ttest[1]`
+  * `r kae_means[3]`
+  
+  
+$\mu$~AE~:
+
+  * `r uae_means[1]`
+  * `r uae_means[2]`
+  * `r uae_means[3]`
+  
+
+$\mu$~FE~:
+
+  * `r ufe_means[1]`
+  * `r ufe_means[2]`
+  * `r ufe_means[3]`
+
+`r u_stats[[1]]`
+
+
+$\sigma$:
+
+  * `r sigma_means[1]`
+  * `r sigma_means[2]`
+    - Amblyopia vs. controls: `r sigma_ttest[1]`
+  * `r sigma_means[3]`
+
+
+MSE: 
+
+  * `r mse_means[1]`
+  * `r mse_means[2]`
+    - Amblyopia vs. controls: `r mse_ttest[1]`
+  * `r mse_means[3]`
+
+### 2.7 Reduction of task length
+```{r}
+# paths
+redPath <- file.path(usrPath, 'dynamic_contrast', 'fitdata_psychophysics',
+                     'psychophysics_reduced_fits.csv')
+reddata <- read.csv(redPath)
+
+if (!all(data$sID == reddata$sID)) {
+  print('WARNING, SIDs DO NOT MATCH')
+}
+
+redkAE <- cor.test(data$kAE, reddata$kAE)
+redsig <- cor.test(data$sigma, reddata$sigma)
+reduAE <- cor.test(data$uAE, reddata$uAE)
+reduFE <- cor.test(data$uFE, reddata$uFE)
+
+```
+
+relationship for k~AE~ (r = `r round(redkAE$estimate,2)`), and $\sigma$ (r = `r round(redsig$estimate,2)`). The correlation was smaller, but still reasonable, for U~AE~ (r = `r round(reduAE$estimate,2)`) and U~FE~ (r = `r round(reduFE$estimate,2)`). 
+
+## Supplementary section
+
+
+```{r, include=FALSE}
+delay_means <- printMeansAndSDs(data$delay, data$group, 2)
+delay_ttest <- printTTestResult(data$delay, data$group)
+
+a_means <- printMeansAndSDs(data$intercept, data$group, 2)
+a_ttest <- printTTestResult(data$intercept, data$group)
+
+b_means <- printMeansAndSDs(data$slope, data$group, 2)
+b_ttest <- printTTestResult(data$slope, data$group)
+
+caliberr_means <- printMeansAndSDs(data$calibErr, data$group, 4)
+caliberr_ttest <- printTTestResult(data$calibErr, data$group)
+
+
+```
+
+#### Data for Supplementary Table 1
+
+Supplementary Table 1. Stage 1 fits: Joystick calibration parameters. Mean (SD) values are shown. Statistical tests compare control vs. amblyopia groups.
+
+
+delay (in seconds):
+
+  * all: `r round(mean(data$delay),2)` (`r round(sd(data$delay),2)`)
+  * `r delay_means[1]`
+  * `r delay_means[2]`
+    - Amblyopia vs. controls: `r delay_ttest[1]`
+  * `r delay_means[3]`
+  
+intercept (a): 
+
+  * all: `r round(mean(data$intercept),2)` (`r round(sd(data$intercept),2)`)
+  * `r a_means[1]`
+  * `r a_means[2]`
+    - Amblyopia vs. controls: `r a_ttest[1]`
+  * `r a_means[3]`
+
+slope (b): 
+
+  * all: `r round(mean(data$slope),2)` (`r round(sd(data$slope),2)`)
+  * `r b_means[1]`
+  * `r b_means[2]`
+    - Amblyopia vs. controls: `r b_ttest[1]`
+  * `r b_means[3]`
+  
+Mean MSE for calibration: 
+
+  * all: `r round(mean(data$calibErr,na.rm=TRUE),4)` (`r round(sd(data$calibErr,na.rm=TRUE),4)`)
+  * `r caliberr_means[1]`
+  * `r caliberr_means[2]`
+    - Amblyopia vs. controls: `r caliberr_ttest[1]`
+  * `r caliberr_means[3]`
+
+#### Regression models
+```{r, echo=FALSE}
+acuity_k <- printRegressionResults(data$acuityAE, data$group, data$kAE)
+stereo_k <- printRegressionResults(log10(data$circles), data$group, data$kAE)
+contrast_k <- printRegressionResults(data$AULCSF_AE, data$group, data$kAE)
+letter_k <- printRegressionResults(data$LS, data$group, data$kAE)
+
+stereo_k_equation <- summary(lm(log10(circles) ~ group + kAE, data=data))
+letter_k_equation <- summary(lm(data$LS ~ group + kAE, data=data))
+```
+
+##### Supplementary Table 2. Linear regression results using Group and/or kAE as predictors
+
+Acuity (Amblyopic eye):
+
+  * Group alone: `r acuity_k[1]`
+  * k~AE~ alone: `r acuity_k[2]`
+  * k~AE~ after Group: `r acuity_k[3]`
+  
+Stereoacuity (log10) 
+
+  * Group alone: `r stereo_k[1]`
+  * k~AE~ alone: `r stereo_k[2]`
+  * k~AE~ after Group: `r stereo_k[3]`
+  * Regression equation:
+    * b~0~ = `r round(stereo_k_equation$coefficients[1,1],2)` (SE = `r round(stereo_k_equation$coefficients[1,2],2)`), t(`r stereo_k_equation$df[2]`) = `r round(stereo_k_equation$coefficients[1,3],2)`, p = `r round(stereo_k_equation$coefficients[1,4],4)`; 
+    * b~amblyopia~ = `r round(stereo_k_equation$coefficients[2,1],2)` (SE = `r round(stereo_k_equation$coefficients[2,2],2)`), t(`r stereo_k_equation$df[2]`) = `r round(stereo_k_equation$coefficients[2,3],2)`, p = `r round(stereo_k_equation$coefficients[2,4],4)`; 
+    * b~strabismus~ = `r round(stereo_k_equation$coefficients[3,1],2)` (SE = `r round(stereo_k_equation$coefficients[3,2],2)`), t(`r stereo_k_equation$df[2]`) = `r round(stereo_k_equation$coefficients[3,3],2)`, p = `r round(stereo_k_equation$coefficients[3,4],4)`; 
+    * b~kAE~ = `r round(stereo_k_equation$coefficients[4,1],2)` (SE = `r round(stereo_k_equation$coefficients[4,2],2)`), t(`r stereo_k_equation$df[2]`) = `r round(stereo_k_equation$coefficients[4,3],2)`, p = `r round(stereo_k_equation$coefficients[4,4],4)`; 
+    * R2 = `r round(stereo_k_equation$r.squared,2)`, ~adj~R2 = `r round(stereo_k_equation$adj.r.squared,2)`, F(`r stereo_k_equation$fstatistic[2]`,`r stereo_k_equation$fstatistic[3]`) = `r round(stereo_k_equation$fstatistic[1],2)`, p = `r round(pf(stereo_k_equation$fstatistic[1], stereo_k_equation$fstatistic[2], stereo_k_equation$fstatistic[3], lower.tail = FALSE),4)`.
+  
+Contrast sensitivity (AUC, Amblyopic Eye)
+
+  * Group alone: `r contrast_k[1]`
+  * k~AE~ alone: `r contrast_k[2]`
+  * k~AE~ after Group: `r contrast_k[3]`
+  
+Interocular balance point (letter chart)
+
+  * Group alone: `r letter_k[1]`
+  * k~AE~ alone: `r letter_k[2]`
+  * k~AE~ after Group: `r letter_k[3]`
+  * Regression equation:
+    * b~0~ = `r round(letter_k_equation$coefficients[1,1],2)` (SE = `r round(letter_k_equation$coefficients[1,2],2)`), t(`r letter_k_equation$df[2]`) = `r round(letter_k_equation$coefficients[1,3],2)`, p = `r round(letter_k_equation$coefficients[1,4],4)`; 
+    * b~amblyopia~ = `r round(letter_k_equation$coefficients[2,1],2)` (SE = `r round(letter_k_equation$coefficients[2,2],2)`), t(`r letter_k_equation$df[2]`) = `r round(letter_k_equation$coefficients[2,3],2)`, p = `r round(letter_k_equation$coefficients[2,4],4)`; 
+    * b~strabismus~ = `r round(letter_k_equation$coefficients[3,1],2)` (SE = `r round(letter_k_equation$coefficients[3,2],2)`), t(`r letter_k_equation$df[2]`) = `r round(letter_k_equation$coefficients[3,3],2)`, p = `r round(letter_k_equation$coefficients[3,4],4)`; 
+    * b~kAE~ = `r round(letter_k_equation$coefficients[4,1],2)` (SE = `r round(letter_k_equation$coefficients[4,2],2)`), t(`r letter_k_equation$df[2]`) = `r round(letter_k_equation$coefficients[4,3],2)`, p = `r round(letter_k_equation$coefficients[4,4],4)`; 
+    * R2 = `r round(letter_k_equation$r.squared,2)`, ~adj~R2 = `r round(letter_k_equation$adj.r.squared,2)`, F(`r letter_k_equation$fstatistic[2]`,`r letter_k_equation$fstatistic[3]`) = `r round(letter_k_equation$fstatistic[1],2)`, p = `r round(pf(letter_k_equation$fstatistic[1], letter_k_equation$fstatistic[2], letter_k_equation$fstatistic[3], lower.tail = FALSE),4)`.
+  
+##### Supplementary Table 3
+
+```{r}
+acuity_uae <- printRegressionResults(data$acuityAE, data$group, data$uAE)
+stereo_uae <- printRegressionResults(log10(data$circles), data$group, data$uAE)
+contrast_uae <- printRegressionResults(data$AULCSF_AE, data$group, data$uAE)
+letter_uae <- printRegressionResults(data$LS, data$group, data$uAE)
+
+acuity_ufe <- printRegressionResults(data$acuityAE, data$group, data$uFE)
+stereo_ufe <- printRegressionResults(log10(data$circles), data$group, data$uFE)
+contrast_ufe <- printRegressionResults(data$AULCSF_AE, data$group, data$uFE)
+letter_ufe <- printRegressionResults(data$LS, data$group, data$uFE)
+```
+
+Acuity (Amblyopic eye):
+
+  * U~AE~ alone: `r acuity_uae[2]`
+  * U~AE~ after Group: `r acuity_uae[3]`
+  * U~FE~ alone: `r acuity_ufe[2]`
+  * U~FE~ after Group: `r acuity_ufe[3]`
+  
+  
+Stereoacuity:
+
+  * U~AE~ alone: `r stereo_uae[2]`
+  * U~AE~ after Group: `r stereo_uae[3]`
+  * U~FE~ alone: `r stereo_ufe[2]`
+  * U~FE~ after Group: `r stereo_ufe[3]`
+  
+  
+Contrast sensitivity:
+
+  * U~AE~ alone: `r contrast_uae[2]`
+  * U~AE~ after Group: `r contrast_uae[3]`
+  * U~FE~ alone: `r contrast_ufe[2]`
+  * U~FE~ after Group: `r contrast_ufe[3]`
+  
+  
+Interocular balance point:
+
+  * U~AE~ alone: `r letter_uae[2]`
+  * U~AE~ after Group: `r letter_uae[3]`
+  * U~FE~ alone: `r letter_ufe[2]`
+  * U~FE~ after Group: `r letter_ufe[3]`
+  
+  
+## Appendix
+
+### Appendix I: Comparison to alternative models
+```{r}
+altPath <- file.path(usrPath, 'dynamic_contrast', 'fitdata_psychophysics',
+                     'psychophysics_altmodels_fits.csv')
+altdata <- read.csv(altPath)
+altdata$group <- factor(altdata$group)
+
+#altdata$bmg2007 <- Re(altdata$bmg2007) # look into
+
+# compile means tables
+
+roundto <- 3
+softmax <- printMeansAndSDs(altdata$softmax, altdata$group, roundto)
+meanPos <- printMeansAndSDs(altdata$meanJoystick, altdata$group, roundto)
+stimAvg <- printMeansAndSDs(altdata$simpleAverage, altdata$group, roundto)
+wghtAvg <- printMeansAndSDs(altdata$weightedAverage, altdata$group, roundto)
+smaxtau <- printMeansAndSDs(altdata$softmax_tau, altdata$group, roundto)
+dskl <- printMeansAndSDs(altdata$ds2006, altdata$group, roundto)
+dskl_tau <- printMeansAndSDs(altdata$ds2006_tau, altdata$group, roundto)
+baker <- printMeansAndSDs(altdata$bmg2007, altdata$group, roundto)
+
+
+meanPos_comp <-printModelAnovaTable(altdata, c('softmax', 'meanJoystick'))
+stimAvg_comp <-printModelAnovaTable(altdata, c('softmax', 'simpleAverage'))
+wghtAvg_comp <-printModelAnovaTable(altdata, c('softmax', 'weightedAverage'))
+smaxtau_comp <-printModelAnovaTable(altdata, c('softmax', 'softmax_tau'))
+dskl_comp <-printModelAnovaTable(altdata, c('softmax', 'ds2006'))
+dskl_tau_comp <-printModelAnovaTable(altdata, c('softmax', 'ds2006_tau'))
+baker_comp <-printModelAnovaTable(altdata, c('softmax', 'bmg2007'))
+```
+
+Attenuation + Normalization
+
+  * Mean error (SD): `r round(mean(altdata$softmax),3)` (`r round(sd(altdata$softmax),3)`)
+  * `r softmax[[2]]`
+  * `r softmax[[3]]`
+  * `r softmax[[1]]`
+  
+Mean Joystick
+
+  * Mean error (SD): `r round(mean(altdata$meanJoystick),3)` (`r round(sd(altdata$meanJoystick),3)`)
+  * `r meanPos[[2]]`
+  * `r meanPos[[3]]`
+  * `r meanPos[[1]]`
+  * Model: `r meanPos_comp$model`
+  * Group: `r meanPos_comp$group`
+  * Inxn: `r meanPos_comp$interaction`
+  
+  
+Stimulus Average
+
+  * Mean error (SD): `r round(mean(altdata$simpleAverage),3)` (`r round(sd(altdata$simpleAverage),3)`)
+  * `r stimAvg[[2]]`
+  * `r stimAvg[[3]]`
+  * `r stimAvg[[1]]`
+  * Model: `r stimAvg_comp$model`
+  * Group: `r stimAvg_comp$group`
+  * Inxn: `r stimAvg_comp$interaction`
+  
+Weighted Stimulus Average
+
+  * Mean error (SD): `r round(mean(altdata$weightedAverage),3)` (`r round(sd(altdata$weightedAverage),3)`)
+  * `r wghtAvg[[2]]`
+  * `r wghtAvg[[3]]`
+  * `r wghtAvg[[1]]`
+  * Model: `r wghtAvg_comp$model`
+  * Group: `r wghtAvg_comp$group`
+  * Inxn: `r wghtAvg_comp$interaction`
+  
+Attenuation + Normalization over time
+
+  * Mean error (SD): `r round(mean(altdata$softmax_tau),3)` (`r round(sd(altdata$softmax_tau),3)`)
+  * `r smaxtau[[2]]`
+  * `r smaxtau[[3]]`
+  * `r smaxtau[[1]]`
+  * Model: `r smaxtau_comp$model`
+  * Group: `r smaxtau_comp$group`
+  * Inxn: `r smaxtau_comp$interaction`
+
+Ding et al.  2013, tau = 50
+
+  * Mean error (SD): `r round(mean(altdata$ds2006),3)` (`r round(sd(altdata$ds2006),3)`)
+  * `r dskl[[2]]`
+  * `r dskl[[3]]`
+  * `r dskl[[1]]`
+  * Model: `r dskl_comp$model`
+  * Group: `r dskl_comp$group`
+  * Inxn: `r dskl_comp$interaction`
+  
+Ding et al.  2013, tau = free
+
+  * Mean error (SD): `r round(mean(altdata$ds2006_tau),3)` (`r round(sd(altdata$ds2006_tau),3)`)
+  * `r dskl_tau[[2]]`
+  * `r dskl_tau[[3]]`
+  * `r dskl_tau[[1]]`
+  * Model: `r dskl_tau_comp$model`
+  * Group: `r dskl_tau_comp$group`
+  * Inxn: `r dskl_tau_comp$interaction`
+  
+Baker et al. 2013
+
+  * Mean error (SD): `r round(mean(altdata$bmg2007),3)` (`r round(sd(altdata$bmg2007),3)`)
+  * `r baker[[2]]`
+  * `r baker[[3]]`
+  * `r baker[[1]]`
+  * Model: `r baker_comp$model`
+  * Group: `r baker_comp$group`
+  * Inxn: `r baker_comp$interaction`
+  
+```{r, fig.width=8.75, fig.height=7}
+modelMeans <- function(data) {
+     
+     means <- colMeans(data[,3:length(data)])
+     sds <- sapply(data[,3:length(data)], sd)
+     n <- nrow(data)
+     ses <- sds/sqrt(n)
+     
+     descriptives <- rbind(means,ses)
+     rownames(descriptives) <- c('mean', 'stderr')
+     descriptives <- as.data.frame(t(descriptives))
+     descriptives$modNames <-
+      factor(rownames(descriptives), levels = rownames(descriptives))
+     return(descriptives)
+}
+
+altdata_long <- subset(altdata, select = c(
+               sID, group, softmax, meanJoystick, simpleAverage,
+               weightedAverage, softmax_tau, ds2006, 
+               ds2006_tau, bmg2007))
+
+descriptives <- modelMeans(altdata_long)
+
+altdata_long <- gather(altdata_long, modeltype, mse, c(3:10))
+altdata_long$modeltype <- factor(altdata_long$modeltype, levels = levels(descriptives$modNames))
+
+
+offset <- 0.2
+
+stripchart(
+  round(altdata_long$mse,2) ~ altdata_long$modeltype,
+  group.names = c('A+N', 'Mean', 'Average', 'Weighted', 
+                  'A+N, tau', 'DSKL', 'DSKL, tau', 'Two-stage'),
+  # xlab = ' ',
+  ylab = 'MSE',
+   xlim = c(0.5,8.5+offset),
+   ylim = c(0, 1),
+  method = 'jitter',
+  offset = 0.5,
+   pch = 16,
+   col = rgb(.1, .1, .1, .4),
+  # bg = rgb(.1, .1, .1, .1),
+  vertical = TRUE,
+  cex.axis = 0.9,
+  cex.lab = 1.2
+)
+
+grid(nx = NA, ny = NULL)
+
+
+drawlinesX <- c(1, 1)
+for (i in 2:nrow(descriptives)) {
+  drawlinesX <- c(drawlinesX, NA, i, i)
+}
+drawlinesX <- drawlinesX - offset
+
+drawlinesY <- c(descriptives[1, 1] + descriptives[1, 2],
+                descriptives[1, 1] - descriptives[1, 2])
+for (i in 2:nrow(descriptives)) {
+  drawlinesY <- c(drawlinesY,
+                  NA,
+                  descriptives[i, 1] + descriptives[i, 2],
+                  descriptives[i, 1] - descriptives[i, 2])
+}
+
+  lines(drawlinesX, drawlinesY, col="black", lwd=3)
+ 
+  points(c(1:8)-offset , descriptives[,1], 
+         pch = 16, 
+         col = 'black',
+         cex = 1.5)
+  
+
+```
+  
+### Appendix II: Switching Models
+
+```{r}
+
+roundto <- 3
+softmax <- printMeansAndSDs(altdata$softmax, altdata$group, roundto)
+stimmax <- printMeansAndSDs(altdata$simpleMax, altdata$group, roundto)
+rivalry <- printMeansAndSDs(altdata$rivalry, altdata$group, roundto)
+dualnul <- printMeansAndSDs(altdata$dualMeanNull, altdata$group, roundto)
+
+testMax <- printModelAnovaTable(altdata, c('softmax', 'simpleMax'))
+testRiv <- printModelAnovaTable(altdata, c('rivalry',  'dualMeanNull'))
+
+
+```
+
+
+Attenuation + Normalization
+
+  * Mean error (SD): `r round(mean(altdata$softmax),3)` (`r round(sd(altdata$softmax),3)`)
+  * `r softmax[[2]]`
+  * `r softmax[[3]]`
+  * `r softmax[[1]]`
+  
+Stimulus Maximum
+
+  * Mean error (SD): `r round(mean(altdata$simpleMax),3)` (`r round(sd(altdata$simpleMax),3)`)
+  * `r stimmax[[2]]`
+  * `r stimmax[[3]]`
+  * `r stimmax[[1]]`
+  
+  
+A+N vs. Stimulus Maximum
+
+  * Model: `r testMax$model`
+  * Group: `r testMax$group`
+  * Inxn: `r testMax$interaction`
+
+
+
+Rivalry
+
+  * Mean error (SD): `r round(mean(altdata$rivalry),3)` (`r round(sd(altdata$rivalry),3)`)
+  * `r rivalry[[2]]`
+  * `r rivalry[[3]]`
+  * `r rivalry[[1]]`
+  
+Dual-mean null model
+
+  * Mean error (SD): `r round(mean(altdata$dualMeanNull),3)` (`r round(sd(altdata$dualMeanNull),3)`)
+  * `r dualnul[[2]]`
+  * `r dualnul[[3]]`
+  * `r dualnul[[1]]`
+  
+
+Rivalry vs. Dual-mean null
+
+  * Model: `r testRiv$model`
+  * Group: `r testRiv$group`
+  * Inxn: `r testRiv$interaction`
+  
+```{r, fig.width=6, fig.height=7}
+
+
+altdata_long <- subset(altdata, select = c(
+               sID, group, softmax,
+               simpleMax, rivalry,
+               dualMeanNull))
+
+descriptives <- modelMeans(altdata_long)
+
+altdata_long <- gather(altdata_long, modeltype, mse, c(3:6))
+altdata_long$modeltype <- factor(altdata_long$modeltype, levels = levels(descriptives$modNames))
+
+offset <- 0.2
+
+stripchart(
+  round(altdata_long$mse,3) ~ altdata_long$modeltype,
+  group.names = c('A+N', 'Maximum', 'Rivalry', 'Dual-Mean Null'),
+  # xlab = ' ',
+  ylab = 'MSE',
+   xlim = c(0.5,4.5+offset),
+   ylim = c(0, 0.4),
+  method = 'jitter',
+  offset = 0.5,
+   pch = 16,
+   col = rgb(.1, .1, .1, .4),
+  # bg = rgb(.1, .1, .1, .1),
+  vertical = TRUE,
+  cex.axis = 0.9,
+  cex.lab = 1.2
+)
+
+grid(nx = NA, ny = NULL)
+
+
+drawlinesX <- c(1, 1)
+for (i in 2:nrow(descriptives)) {
+  drawlinesX <- c(drawlinesX, NA, i, i)
+}
+drawlinesX <- drawlinesX - offset
+
+drawlinesY <- c(descriptives[1, 1] + descriptives[1, 2],
+                descriptives[1, 1] - descriptives[1, 2])
+for (i in 2:nrow(descriptives)) {
+  drawlinesY <- c(drawlinesY,
+                  NA,
+                  descriptives[i, 1] + descriptives[i, 2],
+                  descriptives[i, 1] - descriptives[i, 2])
+}
+
+  lines(drawlinesX, drawlinesY, col="black", lwd=3)
+ 
+  points(c(1:4)-offset , descriptives[,1], 
+         pch = 16, 
+         col = 'black',
+         cex = 1)
+  ```

@@ -1,0 +1,632 @@
+---
+title: "Comparing across different fit options on mu estimates"
+output:
+  html_document:
+    df_print: paged
+date: '2023-04-03'
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+
+## Summary tables
+printMeansAndSDs <- function(dvColumn, groupColumn, roundto) {
+  m_AM <- mean(dvColumn[groupColumn=='AM'], na.rm=T)
+  sd_AM <- sd(dvColumn[groupColumn=='AM'], na.rm=T)
+  m_BD <- mean(dvColumn[groupColumn=='BD'], na.rm=T)
+  sd_BD <- sd(dvColumn[groupColumn=='BD'], na.rm=T)
+  m_NS <- mean(dvColumn[groupColumn=='NS'], na.rm=T)
+  sd_NS <- sd(dvColumn[groupColumn=='NS'], na.rm=T)
+  
+  output1 <- paste0('Control: ', round(m_NS,roundto), ' (', round(sd_NS,roundto), ')')
+  output2 <- paste0('Amblyopia: ', round(m_AM,roundto), ' (', round(sd_AM,roundto), ')')
+  output3 <- paste0('Strabismus with equal acuity: ', round(m_BD,2), ' (', round(sd_BD,roundto), ')')
+  return(list(output1,output2,output3))
+}
+printTTestResult <- function(dvColumn, groupColumn) {
+  # t(14.52) = 4.79, p < 0.0001; Glass’s ∆ = 5.10
+  t_result <- t.test(dvColumn[groupColumn=='AM'], dvColumn[groupColumn=='NS'])
+  gd <- glass_delta(dvColumn[groupColumn=='AM'], dvColumn[groupColumn=='NS'])
+  
+  if (t_result$p.value < 0.0001) {
+    pstring <- 'p < 0.0001'
+  } else {
+    pstring <- paste('p =', signif(t_result$p.value,2))
+  }
+
+  out1 <- paste0("t(", round(t_result$parameter,1),
+         ") = ", abs(round(t_result$statistic,2)),
+         ", ", pstring,  
+         "; Glass's ∆ = ", abs(round(gd$Glass_delta,2)))
+  return(list(out1, pstring))
+}
+printAnovaByEyeTable <- function(data, selectCols) {
+  #  example selectCols = c('uAE', 'uFE')
+  # assumes your condition/group var is called group
+
+data_subset <- subset(data, select = c('sID', 'group', selectCols))
+
+#  subset out the BD data
+data_subset <- subset(data_subset, group != 'BD')
+data_subset$Cond <- droplevels(data_subset$group)
+
+data_long <- gather(data_subset, eye, value, 3:4)
+data_long$sID <- factor(data_long$sID)
+data_long$eye <- factor(data_long$eye)
+
+res.aov <- anova_test(data=data_long, dv=value, wid = sID, between = group, within = eye)
+tmp <- get_anova_table(res.aov)
+
+posthoc1 <- data_long %>% group_by(eye) %>%
+  anova_test(dv = value, wid = sID, between = group) %>%
+  get_anova_table() %>%
+  adjust_pvalue(method = 'bonferroni')
+
+indGrp <- which(tmp[,'Effect'] == 'group')
+indEye <- which(tmp[,'Effect'] == 'eye')
+indIxn <- which(tmp[,'Effect'] == 'group:eye')
+
+
+# build text output
+if (tmp[indGrp,'p'] < 0.05) {
+  # sig
+  strGrp <- 'Main effect of group'
+} else {
+  # non-sig
+  strGrp <- 'No main effect of group'
+}
+  
+  if (tmp[indGrp,'p'] < 0.0001) {
+    pGrp <- 'p < 0.0001'
+  } else {
+    pGrp <- paste('p =', signif(tmp[indGrp,'p'],2))
+  }
+
+if (tmp[indEye,'p'] < 0.05) {
+  # sig
+  strEye <- 'main effect of eye'
+} else {
+  # non-sig
+  strEye <- 'no main effect of eye'
+}
+  
+  if (tmp[indEye,'p'] < 0.0001) {
+    pEye <- 'p < 0.0001'
+  } else {
+    pEye <- paste('p =', signif(tmp[indEye,'p'],2))
+  }
+
+
+if (tmp[indIxn,'p'] < 0.05) {
+  # sig
+  strIxn <- 'a significant group by eye interaction'
+} else {
+  # non-sig
+  strIxn <- 'no group by eye interaction'
+}
+  
+  if (tmp[indIxn,'p'] < 0.0001) {
+    pIxn <- 'p < 0.0001'
+  } else {
+    pIxn <- paste('p =', signif(tmp[indIxn,'p'],2))
+  }
+
+
+# posthoc: eye 1
+if (posthoc1$p[1] < 0.05) {
+  # sig
+  strPh1 <- paste('difference in', selectCols[1])
+} else {
+  # non-sig
+  strPh1 <- paste('no difference in', selectCols[1])
+}
+
+if (posthoc1$p[1] < 0.0001) {
+    pPh1 <- 'p < 0.0001'
+  } else {
+    pPh1 <- paste('p =', signif(posthoc1$p[1],2))
+}
+
+
+# posthoc: eye 2
+if (posthoc1$p[2] < 0.05) {
+  # sig
+  strPh2 <- paste('difference in', selectCols[2])
+} else {
+  # non-sig
+  strPh2 <- paste('no difference in', selectCols[2])
+}
+
+if (posthoc1$p[2] < 0.0001) {
+    pPh2 <- 'p < 0.0001'
+  } else {
+    pPh2 <- paste('p =', signif(posthoc1$p[2],2))
+}
+
+
+out1 <- paste0(strGrp, ", F(", tmp[indGrp,'DFn'], ",", tmp[indGrp,'DFd'],
+               ") = ", round(tmp[indGrp,'F'],2), ", ", pGrp, ", ges = ", signif(tmp[indGrp, 'ges'],2))
+
+out2 <- paste0(strEye, ", F(", tmp[indEye,'DFn'], ",", tmp[indEye,'DFd'],
+               ") = ", round(tmp[indEye,'F'],2), ", ", pEye,
+               ", ges = ", signif(tmp[indEye, 'ges'],2))
+
+out3 <- paste0(strIxn, ", F(", tmp[indIxn,'DFn'], ",", tmp[indIxn,'DFd'],
+               ") = ", round(tmp[indIxn,'F'],2), ", ", pIxn, ", ges = ", signif(tmp[indIxn, 'ges'],2))
+
+out4 <- paste0("Simple main effects: ", strPh1, 
+", F(", posthoc1[1,'DFn'], ",", posthoc1[1,'DFd'],
+               ") = ", round(posthoc1[1,'F'],2), ", ", pPh1,
+               ", ges = ", signif(posthoc1[1, 'ges'],2))
+
+
+out5 <- paste0("Simple main effects: ", strPh2, ", F(", posthoc1[2,'DFn'], ",", posthoc1[2,'DFd'],
+               ") = ", round(posthoc1[2,'F'],2), ", ", pPh2,
+               ", ges = ", signif(posthoc1[2, 'ges'],2))
+
+returnStr <- paste(out1,out2,out3,out4,out5)
+return(list(returnStr, out1, out2, out3, out4, out5))
+}
+
+
+## Plots
+
+stripchart_w_means <- function(DV, group, strDV, ylimits) {
+  # DV = column for DV (eg data$delay)
+  # group = column for group (eg data$Cond)
+  # strDV = string, DV name (for plot)
+  # ylimits = c(min, max)
+  
+  # deal with missing values
+  if (any(is.na(DV))) {
+    ind <- !is.na(DV)
+    DV <- DV[ind]
+    group <- group[ind]
+  }
+  
+  desc_matrix <- groupMeans(DV, group) # helper function below
+  
+  # rounding for stripcharts - allows prettier stacking
+  if (strDV == 'kAE') {
+  
+  # round to the nearest even-numbered 100ths
+  DV <- round(DV/2,2)*2
+  
+  } else if (strDV == 'sigma') {
+    # round to the nearest 0.5ths
+    DV <- round(DV*2,1)/2
+  } else  {
+  # round to the nearest 100ths by default
+    DV <- round(DV,2) 
+  }
+  
+  # plot
+  stripchart(DV ~ group,
+             group.names = c(' ', ' ', ' '),
+             xlab = ' ',
+             ylab = paste(strDV, '[SE]'),
+             xlim = c(0.5,3.5),
+             ylim = ylimits,
+             method = 'stack', offset = 0.5,
+             pch = c(pchAM, pchBD, pchNS),
+             col = c(colAM, colBD, colNS),
+             bg = grey_transp, vertical=TRUE,
+             cex.axis=1.2, cex.lab = 1.2) 
+  
+  grid(nx = NA, ny = NULL)
+  
+  offset <- 0.2
+  drawlinesX <- c(1, 1, NA, 2, 2, NA, 3, 3) - offset
+  drawlinesY <- c(desc_matrix[1,1] + desc_matrix[1,2],
+                  desc_matrix[1,1] - desc_matrix[1,2], NA,
+                  desc_matrix[2,1] + desc_matrix[2,2],
+                  desc_matrix[2,1] - desc_matrix[2,2], NA,
+                  desc_matrix[3,1] + desc_matrix[3,2],
+                  desc_matrix[3,1] - desc_matrix[3,2])
+  
+  lines(drawlinesX, drawlinesY, col="black", lwd=3)
+  
+  points(c(1,2,3)-offset , desc_matrix[,1], 
+         pch = c(pchAM, pchBD, pchNS), 
+         col = c(colAM_solid, colBD_solid, colNS_solid),
+         cex = 1.5)
+  
+  mtext('amblyopia', side = 1, at=1, font=1, line = 1, cex=.9, col=colAM_solid)
+  mtext('strabismus', side = 1, at=2, font=1, line=1,cex=.9, col=colBD_solid)
+  mtext('control', side = 1, at=3, font=1, line=1,cex=.9, col=colNS_solid)
+}
+
+stripchart_w_means_byeye <- function(DV_AE, DV_FE, group_AE, group_FE, strDV, ylimits) {
+  # DV_AE = column for DV, amblyopic eye (eg data$uAE)
+  # DV_FE = column for DV, fellow eye (eg data$uFE)
+  # group = column for group (eg data$Cond)
+  # strDV = string, DV name (for plot)
+  # ylimits = c(min, max)
+  
+  # missing data checks
+  
+  if (any(is.na(DV_AE))) {
+    ind <- !is.na(DV_AE)
+    DV_AE <- DV_AE[ind]
+    group_AE <- group_AE[ind]
+  }
+  
+  if (any(is.na(DV_FE))) {
+    ind <- !is.na(DV_FE)
+    DV_FE <- DV_FE[ind]
+    group_FE <- group_FE[ind]
+  }
+  
+  group_AE <- paste0(group_AE, ' (AE)')
+  group_FE <- paste0(group_FE, ' (FE)')
+  
+  desc_matrix <- groupMeans_byEye(c(DV_AE, DV_FE), c(group_AE, group_FE))
+  
+  # pretty-ify the stack for stripchart function
+  
+  if (strDV == 'u') {
+    # round to the nearest 10ths
+    xvar = round(c(DV_AE, DV_FE),1)
+  } else {
+    # round to the nearest even 
+    xvar <- round(c(DV_AE, DV_FE)*2,1)/2
+   }
+     
+  
+  # plot
+  stripchart(xvar ~ c(group_AE, group_FE),
+             group.names = c('AE', 'FE', 'AE', 'FE', 'AE', 'FE'),
+             xlab = ' ',
+             ylab = paste(strDV, '[SE]'),
+             xlim = c(0.5,6.5),
+             ylim = ylimits,
+             method = 'stack', offset = 0.4,
+             pch = c(pchAM, pchAM, pchBD, pchBD, pchNS, pchNS),
+             col = c(colAM, colAM, colBD, colBD, colNS, colNS),
+             bg=grey_transp, vertical=TRUE,
+             cex.axis=1.2, cex.lab=1.2) 
+  
+  grid(nx = NA, ny = NULL)
+  
+  offset <- 0.2
+  drawlinesX <- c(1, 1, NA, 2, 2, NA, 
+                  3, 3, NA, 4, 4, NA,
+                  5, 5, NA, 6, 6) - offset
+  drawlinesY <- c(desc_matrix[1,1] + desc_matrix[1,2],
+                  desc_matrix[1,1] - desc_matrix[1,2], NA,
+                  desc_matrix[2,1] + desc_matrix[2,2],
+                  desc_matrix[2,1] - desc_matrix[2,2], NA,
+                  desc_matrix[3,1] + desc_matrix[3,2],
+                  desc_matrix[3,1] - desc_matrix[3,2], NA,
+                  desc_matrix[4,1] + desc_matrix[4,2],
+                  desc_matrix[4,1] - desc_matrix[4,2], NA,
+                  desc_matrix[5,1] + desc_matrix[5,2],
+                  desc_matrix[5,1] - desc_matrix[5,2], NA,
+                  desc_matrix[6,1] + desc_matrix[6,2],
+                  desc_matrix[6,1] - desc_matrix[6,2])
+  
+  lines(drawlinesX, drawlinesY, col="black", lwd=3)
+  
+  points(c(1,2,3,4,5,6)-offset , desc_matrix[,1],
+         pch = c(pchAM, pchAM, pchBD, pchBD, pchNS, pchNS),
+         col = c(colAM_solid, colAM_solid,
+                 colBD_solid, colBD_solid,
+                 colNS_solid, colNS_solid),
+         cex = 1.2)
+  
+  
+  mtext('amblyopia', side = 1, at=1.5, font=1, line = 2, cex=1, col=colAM_solid)
+  mtext('strabismus', side = 1, at=3.5, font=1, line=2,cex=1, col=colBD_solid)
+  mtext('control', side = 1, at=5.5, font=1, line=2,cex=1, col=colNS_solid)
+}
+
+
+## Helpful lil functions
+
+groupMeans <- function(DV, group) {
+  # DV = column for DV (eg data$delay)
+  # group = column for group (eg data$Cond)
+  
+  # get means and SEs
+  t_AM <- t.test(DV[group == 'AM'])
+  desc_AM <- c(t_AM$estimate, t_AM$stderr, t_AM$conf.int)
+  
+  t_BD <- t.test(DV[group == 'BD'])
+  desc_BD <- c(t_BD$estimate, t_BD$stderr, t_BD$conf.int)
+  
+  # workaround (error if controls have all same [eg stereo] values)
+  t_NS <- try(t.test(DV[group == 'NS']))
+  desc_NS <- c(t_NS$estimate, t_NS$stderr, t_NS$conf.int)
+  
+  descriptives <- rbind(desc_AM, desc_BD, desc_NS)
+  rownames(descriptives) <- c('AM', 'BD', 'NS')
+  colnames(descriptives) <- c('mean', 'stderr', '95ci-low', '95ci-upp')
+  
+  return(descriptives)
+}
+
+groupMeans_byEye <- function(DV, group) {
+  
+  # get means and SEs
+  t_AM_AE <- t.test(DV[group == 'AM (AE)'])
+  desc_AM_AE <- c(t_AM_AE$estimate, t_AM_AE$stderr, t_AM_AE$conf.int)
+  t_AM_FE <- t.test(DV[group == 'AM (FE)'])
+  desc_AM_FE <- c(t_AM_FE$estimate, t_AM_FE$stderr, t_AM_FE$conf.int)
+  
+  
+  # workaround for controls having stereo values that are all the same (good stereo) is needed
+  
+  t_NS_AE <- try(t.test(DV[group == 'NS (AE)']))
+  desc_NS_AE <- c(t_NS_AE$estimate, t_NS_AE$stderr, t_NS_AE$conf.int)
+  
+  t_NS_FE <- try(t.test(DV[group == 'NS (FE)']))
+  desc_NS_FE <- c(t_NS_FE$estimate, t_NS_FE$stderr, t_NS_FE$conf.int)
+  
+  
+  # 
+  t_BD_AE <- t.test(DV[group == 'BD (AE)'])
+  desc_BD_AE <- c(t_BD_AE$estimate, t_BD_AE$stderr, t_BD_AE$conf.int)
+  t_BD_FE <- t.test(DV[group == 'BD (FE)'])
+  desc_BD_FE <- c(t_BD_FE$estimate, t_BD_FE$stderr, t_BD_FE$conf.int)
+  
+  
+  descriptives <- rbind(desc_AM_AE, desc_AM_FE,
+                        desc_BD_AE, desc_BD_FE,
+                        desc_NS_AE, desc_NS_FE)
+  rownames(descriptives) <- c('AM (AE)','AM (FE)', 
+                              'BD (AE)', 'BD (FE)',
+                              'NS (AE)', 'NS (FE)')
+  colnames(descriptives) <- c('mean', 'stderr', '95ci-low', '95ci-upp')
+  
+  return(descriptives)
+}
+
+ceil_round <- function(x, nDigits) {
+  # ceilings to the nearest n digits
+  n <- 10^nDigits
+  return(ceiling(x*n)/n)
+}
+floor_round <- function(x, nDigits) {
+  # floors to the nearest n digits
+  n <- 10^nDigits
+  return(floor(x*n)/n)
+}
+
+
+## colours & pchs
+
+grey_transp <- rgb(.1, .1, .1, .1)
+
+colAM <- rgb(1,0,0, alpha = 0.6)
+colNS <- rgb(0,0,1, alpha = 0.6)
+colBD <- rgb(0,.5, 0, alpha = 0.6)
+pchAM <- 16
+pchNS <- 18
+pchBD <- 15
+
+colAM_solid <- rgb(1,0,0)
+colNS_solid <- rgb(0,0,1)
+colBD_solid <- rgb(0,.5,0)
+
+```
+
+```{r}
+# setwd("~/Downloads/dynamic_contrast/fitdata_psychophysics/")
+library('psych')
+library('tidyr')
+library('rstatix')
+library('lm.beta')
+library('kableExtra')
+library('effectsize')
+
+strFitcon <- c('fit()', 'fitcon()')
+strGrid <- c('no gridsearch', 'grid search')
+strSigma <- c('sigma estimated', 'sigma fixed = 1')
+strAbs <- c('no abs() in formula', 'using abs() in fomula')
+
+```
+
+## Summary of fit options
+Initially we used fitcon() for fits but in code review/cleanup realized this was biasing our estimates toward seeded values. This led to us testing a few fit opts. Below we check fit vs fitcon, straight estimates vs grid search, fixing sigma at 1 vs freely-estimated, using abs() values in the mu equation vs not. 
+
+
+```{r, fig.width=4.5, fig.height=4.5, echo = FALSE}
+#tryfitcon <- 0
+#trygrid <- 0
+#trysigmafixed <- 0
+#tryabs <- 0
+
+
+for (tryfitcon in 0:1) {
+  for (trygrid in 0:1) {
+for (trysigmafixed in 0:1) {
+for (tryabs in 0:1) {
+  
+  data <- read.csv(
+    paste0('fit_test_table',
+      '-tryfitcon', tryfitcon,
+      '-trygrid', trygrid,
+      '-trysigmafixed', trysigmafixed,
+      '-tryabs', tryabs,
+      '.csv'))
+
+  data$group <- factor(data$group)
+
+  
+  print('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
+  print('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
+  print(paste0('++++++ Using ', strFitcon[tryfitcon + 1], 
+              ', ', strGrid[trygrid+1],
+              ', with ', strSigma[trysigmafixed + 1],
+              ', and ', strAbs[tryabs + 1]))
+  print('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
+  print('+++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
+  
+  # kAE:
+  stripchart_w_means(data$kAE, data$group, 'kAE', c(0, 1))
+  data_means <- printMeansAndSDs(data$kAE, data$group, 2)
+  
+  data_test <- printTTestResult(data$kAE, data$group)
+  print('k_AE mean (SD):')
+  for (p in 1:3) {
+    print(paste(' -', data_means[[p]]))
+    if (p == 2) {
+        print(paste('Amblyopia vs. control:', data_test[[1]]))
+    }
+  }
+
+  # sigma:
+  if (trysigmafixed == 0) {
+    ylims <- c(floor_round(min(data$sigma, na.rm = TRUE), 1),
+             ceil_round(max(data$sigma, na.rm = TRUE), 1))
+    stripchart_w_means(data$sigma, data$group, 'sigma', ylims)
+  data_means <- printMeansAndSDs(data$sigma, data$group, 2)
+  data_test <- printTTestResult(data$sigma, data$group)
+  
+  print('sigma mean (SD):')
+  for (p in 1:3) {
+    print(paste(' -', data_means[[p]]))
+    if (p == 2) {
+        print(paste('Amblyopia vs. control:', data_test[[1]]))
+    }
+  }
+  
+  # mu:
+  ylims <- c(floor_round(min(c(data$uAE, data$uFE), na.rm = TRUE), 1),
+  ceil_round(max(c(data$uAE, data$uFE), na.rm = TRUE), 1))
+  stripchart_w_means_byeye(data$uAE, data$uFE,
+                           data$group, data$group, 'u', ylims)
+  
+  uae_means <- printMeansAndSDs(data$uAE, data$group, 2)
+  ufe_means <- printMeansAndSDs(data$uFE, data$group, 2)
+  u_stats <- printAnovaByEyeTable(data, c('uAE', 'uFE'))
+  print('u_AE mean (SD):')
+  for (p in 1:3) {print(paste(' - u_AE: ', uae_means[[p]]))}
+  print('u_FE mean (SD):')
+  for (p in 1:3) {print(paste(' - u_FE: ', ufe_means[[p]]))}
+  for (p in 2:6) {print(u_stats[[p]])}
+  
+  # log mu+1:
+  data$uAE_log <- log10(data$uAE + 1)
+  data$uFE_log <- log10(data$uFE + 1)
+  
+  ylims <-
+    c(floor_round(min(c(
+      data$uAE_log, data$uFE_log
+    ), na.rm = TRUE), 1),
+    ceil_round(max(c(
+      data$uAE_log, data$uFE_log
+    ), na.rm = TRUE), 1))
+  stripchart_w_means_byeye(data$uAE_log,
+                           data$uFE_log,
+                           data$group,
+                           data$group,
+                           'log(mu+1)',
+                           ylims)
+  
+  uae_means <- printMeansAndSDs(data$uAE_log, data$group, 2)
+  ufe_means <- printMeansAndSDs(data$uFE_log, data$group, 2)
+  u_stats <- printAnovaByEyeTable(data, c('uAE_log', 'uFE_log'))
+  print('log10(uAE+1) mean (SD):')
+  for (p in 1:3) {print(paste(' - u_AE: ', uae_means[[p]]))}
+  print('log10(uFE+1) mean (SD):')
+  for (p in 1:3) {print(paste(' - u_FE: ', ufe_means[[p]]))}
+  for (p in 2:6) {print(u_stats[[p]])}
+  
+  # MSE:
+  ylims <- c(floor_round(min(data$softmaxErr, na.rm = TRUE), 2),
+             ceil_round(max(data$softmaxErr, na.rm = TRUE), 2))
+  stripchart_w_means(data$softmaxErr, data$group, 'softmaxErr', ylims)
+  data_means <- printMeansAndSDs(data$softmaxErr, data$group, 3)
+  data_test <- printTTestResult(data$softmaxErr, data$group)
+  print('MSE mean (SD):')
+  for (p in 1:3) {
+    print(data_means[[p]])
+    if (p == 2) {
+        print(paste('Amblyopia vs. control:', data_test[[1]]))
+    }
+  }
+  
+  # check mu for outliers
+  muOutliers <- FALSE
+  outlierCrit <- 2
+  
+  tmp <- c(data$uAE, data$uFE)
+  tmp_scaled <- scale(tmp)
+  
+  if (any(tmp_scaled > outlierCrit)) {
+    muOutliers <- TRUE
+    outlierMin <- floor(min(tmp[tmp_scaled > outlierCrit], na.rm = TRUE))
+  }
+  
+  if (muOutliers) {
+    print('===========================================')
+    print(paste(
+      '-- using',
+      strFitcon[tryfitcon + 1],
+      'with',
+      strSigma[trysigmafixed + 1],
+      strGrid[trygrid+1],
+      'and',
+      strAbs[tryabs + 1],
+      'continued:'))
+    
+      print(paste(' -- outliers detected in mu values, replotting with values >',
+      outlierMin, 'removed'))
+  }
+  
+  if (muOutliers) {
+    data$uAE_cln <- data$uAE
+    data$uAE_cln[data$uAE > outlierMin] <- NA
+    data$uFE_cln <- data$uFE
+    data$uFE_cln[data$uFE > outlierMin] <- NA
+    
+    ylims <- c(floor_round(min(c(data$uAE_cln, data$uFE_cln), na.rm = TRUE), 1),
+      ceil_round(max(c(data$uAE_cln, data$uFE_cln), na.rm = TRUE), 1))
+    stripchart_w_means_byeye(data$uAE_cln,
+                             data$uFE_cln,
+                             data$group,
+                             data$group,
+                             'u',
+                             ylims)
+  uae_means <- printMeansAndSDs(data$uAE_cln, data$group, 2)
+  ufe_means <- printMeansAndSDs(data$uFE_cln, data$group, 2)
+  u_stats <- printAnovaByEyeTable(data, c('uAE_cln', 'uFE_cln'))
+  print('u_AE mean (SD):')
+  for (p in 1:3) {print(paste(' - u_AE: ', uae_means[[p]]))}
+  print('u_FE mean (SD):')
+  for (p in 1:3) {print(paste(' - u_FE: ', ufe_means[[p]]))}
+  for (p in 2:6) {print(u_stats[[p]])}
+    
+    data$uAE_cln_log <- log10(data$uAE_cln + 1)
+    data$uFE_cln_log <- log10(data$uFE_cln + 1)
+    
+    ylims <-
+      c(floor_round(min(
+        c(data$uAE_cln_log, data$uFE_cln_log), na.rm = TRUE
+      ), 1),
+      ceil_round(max(
+        c(data$uAE_cln_log, data$uFE_cln_log), na.rm = TRUE
+      ), 1))
+    stripchart_w_means_byeye(data$uAE_cln_log,
+                             data$uFE_cln_log,
+                             data$group,
+                             data$group,
+                             'log10(u+1)',
+                             ylims)
+  uae_means <- printMeansAndSDs(data$uAE_cln_log, data$group, 2)
+  ufe_means <- printMeansAndSDs(data$uFE_cln_log, data$group, 2)
+  u_stats <- printAnovaByEyeTable(data, c('uAE_cln_log', 'uFE_cln_log'))
+  print('log10(uAE+1) mean (SD):')
+  for (p in 1:3) {print(paste(' - u_AE: ', uae_means[[p]]))}
+  print('log10(uFE+1) mean (SD):')
+  for (p in 1:3) {print(paste(' - u_FE: ', ufe_means[[p]]))}
+  for (p in 2:6) {print(u_stats[[p]])}
+  }
+  
+}
+}
+}
+  }
+}
+```

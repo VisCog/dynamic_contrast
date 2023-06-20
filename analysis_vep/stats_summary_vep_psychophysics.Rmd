@@ -1,0 +1,211 @@
+---
+title: "Statistics summary: psychophysics from VEP study"
+output:
+  html_document:
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r, include=FALSE}
+# setwd("/Users/bear/Downloads/dynamic_contrast/analysis_vep")
+
+library('psych')
+library('tidyr')
+library('rstatix')
+library('lm.beta')
+library('kableExtra')
+library('effectsize')
+
+# load custom function file
+source('r_helper_functions.R')
+csvModelFitsPath <- file.path('..',
+  'fitdata_vep_psychophysics', 'vep_psychophysics_congruent_fits.csv')
+data <- read.csv(csvModelFitsPath)
+data$group <- as.factor(data$group)
+```
+
+## Participant details
+```{r}
+Ns <- summary(data$group)
+```
+
+Total sample size: `r sum(Ns)`
+
+  * Control n = `r Ns['NS']`
+  * Amblyopia n = `r Ns['AM']`
+  * Binocular disorder (no amblyopia) n = `r Ns['BD']`
+ 
+## Calibration parameters
+
+   * Calibration range (p.clean_range): `r data$clean_range[1]`
+   * Mean good trials per person (p.n_good): `r round(mean(data$n_good),1)` (range: `r min(data$n_good)` to `r max(data$n_good)`)
+  
+### Delay (in sec):
+```{r, fig.width=4, fig.height=4.5}
+stripchart_w_means(data$delay, data$group, 'delay', 
+                   c(0,ceil_round(max(data$delay),1)),2)
+delay_means <- printMeansAndSDs(data$delay, data$group, 2)
+delay_ttest <- printTTestResult(data$delay, data$group)
+```
+
+**Mean (SD) values:**
+
+   * `r delay_means[1]`
+   * `r delay_means[2]`
+     - Amblyopia vs. controls: `r delay_ttest[1]`
+   * `r delay_means[3]`
+
+ 
+### Intercept (a):
+```{r, fig.width=4, fig.height=4.5}
+ylims <- c(floor_round(min(data$intercept, na.rm=TRUE),1),
+           ceil_round(max(data$intercept, na.rm=TRUE),1))
+stripchart_w_means(data$intercept, data$group, 'intercept (a)', ylims,2)
+intercept_means <- printMeansAndSDs(data$intercept, data$group, 2)
+intercept_ttest <- printTTestResult(data$intercept, data$group)
+```
+
+**Mean (SD) values:**
+
+   * `r intercept_means[1]`
+   * `r intercept_means[2]`
+     - Amblyopia vs. controls: `r intercept_ttest[1]`
+   * `r intercept_means[3]`
+
+### Slope (b):
+```{r, fig.width=4, fig.height=4.5}
+ylims <- c(floor_round(min(data$slope, na.rm=TRUE),1),
+           ceil_round(max(data$slope, na.rm=TRUE),1))
+stripchart_w_means(data$slope, data$group, 'slope (b)', ylims,2)
+slope_means <- printMeansAndSDs(data$slope, data$group, 2)
+slope_ttest <- printTTestResult(data$slope, data$group)
+```
+
+**Mean (SD) values:**
+
+   * `r slope_means[1]`
+   * `r slope_means[2]`
+     - Amblyopia vs. controls: `r slope_ttest[1]`
+   * `r slope_means[3]`
+
+
+### Calibration error (mean across trials):
+```{r, fig.width=4, fig.height=4.5}
+ylims <- c(0,
+           ceil_round(max(data$joyCalErrMean, na.rm=TRUE),3))
+stripchart_w_means(round(data$joyCalErrMean,4), data$group, 'joyCalErrMean', ylims,4)
+joyCalErrMean_means <- printMeansAndSDs(data$joyCalErrMean, data$group, 4)
+joyCalErrMean_ttest <- printTTestResult(data$joyCalErrMean, data$group)
+```
+
+**Mean (SD) values:**
+
+   * `r joyCalErrMean_means[1]`
+   * `r joyCalErrMean_means[2]`
+     - Amblyopia vs. controls: `r joyCalErrMean_ttest[1]`
+   * `r joyCalErrMean_means[3]`
+
+
+### Calibration error (individual trials):
+```{r, fig.width=4, fig.height=4.5}
+ylims <- c(0,
+           ceil_round(max(data$joyCalErrInd, na.rm=TRUE),3))
+stripchart_w_means(round(data$joyCalErrInd,4), data$group, 'joyCalErrInd', ylims,4)
+joyCalErrInd_means <- printMeansAndSDs(data$joyCalErrInd, data$group, 4)
+joyCalErrInd_ttest <- printTTestResult(data$joyCalErrInd, data$group)
+```
+
+**Mean (SD) values:**
+
+   * `r joyCalErrInd_means[1]`
+   * `r joyCalErrInd_means[2]`
+     - Amblyopia vs. controls: `r joyCalErrInd_ttest[1]`
+   * `r joyCalErrInd_means[3]`
+
+## Model parameters
+
+### Attenuation (k_AE)
+```{r, fig.width=4, fig.height=4.5}
+ylims <- c(0,1)
+stripchart_w_means(round(data$kAE,4), data$group, 'k(AE)', ylims,2)
+kAE_means <- printMeansAndSDs(data$kAE, data$group, 2)
+kAE_ttest <- printTTestResult(data$kAE, data$group)
+```
+
+**Mean (SD) values:**
+
+   * `r kAE_means[1]`
+   * `r kAE_means[2]`
+     - Amblyopia vs. controls: `r kAE_ttest[1]`
+   * `r kAE_means[3]`
+
+### U values
+```{r, fig.width=5, fig.height=4.5}
+ylims <- c(floor_round(min(c(data$uAE, data$uFE), na.rm=TRUE),1),
+           ceil_round(max(c(data$uAE, data$uFE), na.rm=TRUE),1))
+
+stripchart_w_means_byeye(data$uAE, data$uFE, data$group, data$group,
+                         'U', ylims)
+
+uAE_means <- printMeansAndSDs(data$uAE, data$group, 2)
+uFE_means <- printMeansAndSDs(data$uFE, data$group, 2)
+```
+```{r, include=FALSE}
+u_stats <- printAnovaByEyeTable(data, c('uAE', 'uFE'))
+```
+
+**Mean (SD) values, u_AE:**
+
+   * `r uAE_means[1]`
+   * `r uAE_means[2]`
+   * `r uAE_means[3]`
+
+**Mean (SD) values, u_FE:**
+
+   * `r uFE_means[1]`
+   * `r uFE_means[2]`
+   * `r uFE_means[3]`
+
+**$\mu$ ANOVA test:**
+
+   * `r u_stats[2]`
+   * `r u_stats[3]`
+   * `r u_stats[4]`
+   * `r u_stats[5]`
+   * `r u_stats[6]`
+
+### Sigma
+```{r, fig.width=4, fig.height=4.5}
+ylims <- c(floor_round(min(data$sigma, na.rm=TRUE),1),
+           ceil_round(max(data$sigma, na.rm=TRUE),1))
+stripchart_w_means(data$sigma, data$group, 'sigma', ylims,2)
+sigma_means <- printMeansAndSDs(data$sigma, data$group, 2)
+sigma_ttest <- printTTestResult(data$sigma, data$group)
+```
+
+**Mean (SD) values:**
+
+   * `r sigma_means[1]`
+   * `r sigma_means[2]`
+     - Amblyopia vs. controls: `r sigma_ttest[1]`
+   * `r sigma_means[3]`
+
+### Fit error
+```{r, fig.width=4, fig.height=4.5}
+ylims <- c(floor_round(min(data$softmaxErr, na.rm=TRUE),1),
+           ceil_round(max(data$softmaxErr, na.rm=TRUE),1))
+stripchart_w_means(data$softmaxErr, data$group, 'softmaxErr', ylims,2)
+softmaxErr_means <- printMeansAndSDs(data$softmaxErr, data$group, 3)
+softmaxErr_ttest <- printTTestResult(data$softmaxErr, data$group)
+```
+
+**Mean (SD) values:**
+
+   * `r softmaxErr_means[1]`
+   * `r softmaxErr_means[2]`
+     - Amblyopia vs. controls: `r softmaxErr_ttest[1]`
+   * `r softmaxErr_means[3]`
+
