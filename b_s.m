@@ -455,7 +455,7 @@ classdef b_s
             err = err/n;
         end
         function [err, predModel] = simpleMax(p, data)
-            % calculates the expected output and err for a simple average
+            % calculates the expected output and err for a simple max
             % across the two eyes, no free parameters so fitting and
             % cross-validation unnecessary
             err = 0; n = 0;
@@ -472,6 +472,19 @@ classdef b_s
             end
             err = err/n;
         end
+
+        function [out, p] = simpleSmax(p, S)
+            % the softmax approach with no bells and whistles
+            %  (i.e. no other stages)
+            S = S + 0.5; % move to 0-1 units
+            if ~isfield(p, 'smax'); p.smax = 1; end
+            % raise to smax then sum (then raise to 1/smax)
+            out = sum(S.^p.smax,2).^(1/p.smax);
+            out = out(:)';  % turn output into a row vector
+            out = out - 0.5; % go back into -0.5 - 0.5 units
+        end
+        
+
         function [err, predModel] = rivalry(p, data)
             % calculates the expected output and err for simple rivalry, no
             % free parameters so fitting and cross-validation unnecessary.

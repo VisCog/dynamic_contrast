@@ -1,24 +1,11 @@
 %% fit_vep_dynamic_contrast
 %
 % This script fits  the VEP data (all trials, not separated by
-% whether the joystick was used or not)
+% whether the joystick was used or not) or the psychophysics data (only
+% trials where the joystick was used)
 % Participant IDs are listed in current directory's file called subjectList_vep.m
 %
-% This loads each one up from output_vep, fits
-% the data, and saves results as [subjectID _fitparams.mat]
-%
-% Current implementation: NO calibration, fit monocular trial portions
-% for estimate of attenuation, then fit dichoptic (exclude monocular) trial
-% portions for estimate of suppression/inter-ocular normalization
-%
-% not yet implemented:
-% After all the participants are fit, run gatherTable_vep.m, which
-% will load each and compile the data a table, which is then saved in two
-% places:
-%
-%   - vep_fits.csv for loading into R or other programs
-%   - vep_fits.mat for MATLAB plots or analyses
-
+% <old words deleted> This header needs to be updated
 
 
 %%
@@ -309,25 +296,26 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
         [p.softmaxErr,predModel_softmax,~,data,~,~,~] = b_s.getErr(p, data);
         disp(['   .. FINAL model MSE (all data): ' num2str(round(p.softmaxErr, 4)) ])
     end
-% 
-%     if strcmpi(analysistype, 'ns')
-% 
-%         % try smax!
-%         freeList = {'smax'};
-%         p.costflag = 1; p = fit('b_s.getErr', p, freeList, data);
-%         disp(['   .. smax: ' num2str(p.smax,3)]);
-%         p.costflag = 0;
-%         [p.softmaxErr,predModel_softmax,~,data,~,~,~] = b_s.getErr(p, data);
-%         disp(['   .. FINAL model MSE (all data): ' num2str(round(p.softmaxErr, 4)) ])
-%     end
+    %
+    %     if strcmpi(analysistype, 'ns')
+    %
+    %         % try smax!
+    %         freeList = {'smax'};
+    %         p.costflag = 1; p = fit('b_s.getErr', p, freeList, data);
+    %         disp(['   .. smax: ' num2str(p.smax,3)]);
+    %         p.costflag = 0;
+    %         [p.softmaxErr,predModel_softmax,~,data,~,~,~] = b_s.getErr(p, data);
+    %         disp(['   .. FINAL model MSE (all data): ' num2str(round(p.softmaxErr, 4)) ])
+    %     end
 
 
-%     %% grab cross-validated error
-%     tmp_p = p;
-%     % using all the data, not just dichoptic
-%     tmp_p.costflag = 0; kfoldErr = b_s.cross_calibrate(tmp_p,data, freeList);
-%     tmp_p.kfoldErr  = mean(kfoldErr);    tmp_p.kfoldStd = std(kfoldErr);
-%     p.crossvalerr = tmp_p;
+    %     %% grab cross-validated error
+    %     tmp_p = p;
+    %     % using all the data, not just dichoptic
+    %     tmp_p.costflag = 0; kfoldErr = b_s.cross_calibrate(tmp_p,data, freeList);
+    %     tmp_p.kfoldErr  = mean(kfoldErr);    tmp_p.kfoldStd = std(kfoldErr);
+    %     p.crossvalerr = tmp_p;
 
     save([saveResultsDir filesep sID{i}, '_', p.condition], 'p');
+    clear p
 end
