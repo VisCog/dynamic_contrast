@@ -53,7 +53,7 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
     % the loop
     p.sID = sID{i};
     p.abs = 1;
-    p.clean_range  = 0.4; % only calibrate or fit data where there's this must range in the data, p.clean_range = 0, uses all data
+    p.clean_range  = 0.3; % only calibrate or fit data where there's this must range in the data, p.clean_range = 0, uses all data
     p.condition = 'congruent';
 
     %%% quick fix for not having this dl'd yet
