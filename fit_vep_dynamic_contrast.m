@@ -9,41 +9,60 @@
 
 
 %%
-
-
 clear
 close all
-datatype = 'vep'; %'vep' or 'vep_psychophysics'
+
+%%% analysis details:
+%analysistype   = 'ns';     % 'ns' set k1 = k2 = 1, normal-sighted only
+analysistype    = '';       % '' leave blank for standard analysis
+datatype    = 'vep';  %'vep' or 'vep_psychophysics'
+condition   = 'congruent';
+savePlotOn      = 1;        % if 1, saves plots
+pauseForPlots   = 0;        % if 1, waits for you to press enter after each plot before continuing 
+
+%%% calibration settings/defaults
+clean_range = 0.3; % calibration: use trials with this min range
+startT      = 1;
+slope       = 1;
+calibFreeList = {'slope', 'intercept', 'delay'};
+joyfunction = 'delay + scale';
+delay       = 0.5; 
+penalizeDly = 3;
+
+%%% model-fitting settings/defaults
+useAbs      = 1;   % use absolute value formulae
+modelStr    = 'b_s.softmax';
+pp = [1,1]; 
+ptau = NaN; 
+pm = [1 1];
+pk = [1 1]; 
+pU = [0,0,0,0];
+psigma = 1; 
+psmax = 1; 
+poffset = 0;
+
+%% set up
+
 subjectList_vep; % puts variable called sID in workspace
 
-% June 2023: This script is set up to fit normally-sighted participants
-% with equal attenuation (k1 = k2 = 1) if set analysistype = 'ns'
-analysistype = 'ns';
-
-if strcmpi(analysistype, 'ns')
-    % select normally-sighted participants only:
-    idx = cellfun(@(x) strcmpi(x(1:2),'NS'), sID);
-    sID = sID(idx);
+switch lower(datatype)
+    case 'vep'
+        rawDataDir = [cd filesep 'output_vep']; % where the raw data live
+        saveResultsDir = [cd filesep 'fitdata_vep'  filesep 'model_fits'];
+    case 'vep_psychophysics'
+        rawDataDir = [cd filesep 'output_vep_psychophysics']; % where the raw data live
+        saveResultsDir = [cd filesep 'fitdata_vep_psychophysics'  filesep 'model_fits'];
+    otherwise
+        disp([' datatype ' datatype ' not defined (typo?)'])
 end
-
-if strcmp(datatype, 'vep')
-    rawDataDir = [cd filesep 'output_vep']; % where the raw data live
-    saveResultsDir = [cd filesep 'fitdata_vep'  filesep 'model_fits'];
-
-
-
-elseif strcmp(datatype, 'vep_psychophysics')
-    rawDataDir = [cd filesep 'output_vep_psychophysics']; % where the raw data live
-    saveResultsDir = [cd filesep 'fitdata_vep_psychophysics'  filesep 'model_fits'];
-end
-
-savePlotOn = 0; % if 1, saves plots
-pauseForPlots = 0; % if 1, waits for you to press enter after each plot
 
 if strcmpi(analysistype, 'ns')
     disp('%%%%%%%%%%%%%% You''re running the NS-only, fix k1=k2=1 analysis')
     saveResultsDir = strrep(saveResultsDir, 'model_fits', 'model_fits_fixedk');
     disp('%%%%%%%%%%%%%% If that''s unexpected, change analysistype in the code')
+        % select normally-sighted participants only:
+    idx = cellfun(@(x) strcmpi(x(1:2),'NS'), sID);
+    sID = sID(idx);
 end
 
 %% Individual subjects
@@ -52,12 +71,9 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
     % we clear p at the end of each individual so these need to be inside
     % the loop
     p.sID = sID{i};
-    p.abs = 1;
-    p.clean_range  = 0.3; % only calibrate or fit data where there's this must range in the data, p.clean_range = 0, uses all data
-    p.condition = 'congruent';
-
-    %%% quick fix for not having this dl'd yet
-    if all(sID{i} == 'NS_AA_17'), continue; end
+    p.abs = useAbs;
+    p.clean_range  = clean_range; % only calibrate or fit data where there's this must range in the data, p.clean_range = 0, uses all data
+    p.condition = condition;
 
     disp('++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++')
     disp(['Working on ' sID{i} ' (' num2str(i) ' of ' num2str(length(sID)) ')'])
@@ -124,27 +140,21 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
     disp(['# Calib trials = ', num2str(size( data.experiment.binoResponse, 1)),  ...
         ' Good Calib trials = ', num2str(p.n_good)]);
 
-    p.startT = 1;
+    p.startT = startT;
 
     % default to slope of 1, intercept is mean (usually around 0)
-    p.slope = 1;
+    p.slope = slope;
     p.intercept = -2*nanmean(data.experiment.binoResponse(:));
-
     p.junk = 0;
     binoMean.gvals = [];
     p.dt = diff(data.binocular.t(1:2));
     data.binocular.t = 0:p.dt:p.dt*size(data.experiment.binoResponse, 2)-p.dt;
 
-    if strcmp(datatype, 'vep')
-        freeList = {'slope', 'intercept', 'delay'};
-        p. joystickfunction = 'delay + scale';
-        p.delay = 0.15; p.penalizeDelay = 3; % delay  penalization in seconds
-    elseif strcmp(datatype, 'vep_psychophysics')
-        freeList = {'slope', 'intercept', 'delay'};
-        p.delay =2; p.penalizeDelay = 3; % delay  penalization in seconds, based on previous psychophysical data
-        p. joystickfunction = 'delay + scale';
-    end
-    p.costflag = 1; p = fit('b_s.getErrBinoMean', p, freeList, data);
+    p.joystickfunction = joyfunction;
+    p.delay = delay;
+    p.penalizeDelay = penalizeDly; % delay  penalization in seconds
+
+    p.costflag = 1; p = fit('b_s.getErrBinoMean', p, calibFreeList, data);
 
     % Calculate the error, both for mean joystick position and for
     % indivdual trials
@@ -207,24 +217,22 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
     monoData.experiment.response(~monoTrialsIndex) = NaN;
 
     % Run the fit - allow k to vary, fix Us to 0 and sigma to 1
-    p.model ='b_s.softmax';
-    % don't let certain parameters go below zero
-    p.p = [1,1]; p.tau = NaN; p.m = [ 1 1];
-    p.k = [1,1]; p.U = [0,0,0,0];
-    p.sigma = 2; p.smax = 1; p.offset = 0;
-
-    %freeList = {'k', 'offset'};
-    % KM - not sure what offset is doing here, ask IF if I need updated b_s
-
+    p.model = modelStr;
+    p.p = pp; 
+    p.tau = ptau; 
+    p.m = pm;
+    p.k = pk; 
+    p.U = pU;
+    p.sigma = psigma; 
+    p.smax = psmax; 
+    p.offset = poffset;
 
     if strcmpi(analysistype, 'ns')
         % doing the normal-sighted analysis where k1=k2=1
-        % skip the fit for this step
-
+        % skip the fit for this step, do offset only
         freeList = {'offset'};
         p.costflag = 1; p = fit('b_s.getErr', p, freeList, monoData);
         disp(['   .. offset: ' num2str(round(p.offset,3)) ])
-
 
     else % do the regular old analysis
         freeList = {'k', 'offset'};
@@ -234,9 +242,10 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
         p.k = p.k / (max(p.k));
     end
 
-    % Grab model error
+    % Grab model error (all data)
     p.costflag = 0;  [p.step1attenuationErr,~,~,~,~,~,~] = b_s.getErr(p, data);
     disp(['   .. normed k left: ' num2str(round(p.k(1),3)) '    normed k right: ' num2str(round(p.k(2),3))])
+    disp(['   .. offset: ' num2str(round(p.offset,3)) ])
     disp(['   .. model MSE: ' num2str(round(p.step1attenuationErr, 4)) ])
 
 
@@ -252,7 +261,8 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
     dichData.experiment.response(monoTrialsIndex) = NaN;
 
     % run the fit - use k values from above, estimate U2 U3
-    p.U = [0 0 0 0]; freeList = {'U(2)','U(3)'};
+    %freeList = {'U(2)','U(3)'};
+     freeList = {'U(2)','U(3)', 'sigma'};
     p.costflag = 1;  p = fit('b_s.getErr',p, freeList, dichData);
 
     if p.abs == 1
@@ -263,15 +273,13 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
         p.U = abs(p.U);
     end
 
-    % grab error for this model fit, using ALL the data, and not including costs for bad param values
+    % grab error (all data)
     p.costflag = 0;  [p.step2normalizationErr,predModel_softmax,~,data.dich,~,~,~] = b_s.getErr(p, data);
     % display outputs
     disp(['   .. U2 (right influence on left eye response): ' num2str(round(p.U(2),4))]);
     disp(['   .. U3 (left influence on right eye response): ' num2str(round(p.U(3),4))]);
     disp(['   .. sigma: ' num2str(round(p.sigma,4)) ])
     disp(['   .. model MSE: ' num2str(round(p.step2normalizationErr, 4)) ]);
-
-    % test smax here .. ?
 
     %%%%%%%%%%%%
     %% Step 3 %% Re-fit k on all data

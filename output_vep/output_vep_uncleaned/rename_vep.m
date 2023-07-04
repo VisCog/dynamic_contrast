@@ -20,14 +20,20 @@ clear
 %old = {'AM_RE_L_IA_22'}
 %new = {'AM_RE_IA_24'}
 
- old = {'BD_YT_63'}
- new = {'NS_YT_63'}
+% old = {'BD_YT_63'}
+% new = {'NS_YT_63'}
+
+old = {'AM_RE_CK_23'}
+new = {'AM_RE_AK_25'}
+
 
 % being very specific so no one can accidentally run this 
-fileDir = '/Users/bear/Downloads/dynamic_contrast/output_vep/output_vep_uncleaned/';
+fileDir = '/Users/bear/Documents/UW/allthegit/dynamic_contrast/output_vep/output_vep_uncleaned/';
 
 for i = 1:size(old,1)
     fileMove = dir([fileDir old{1} '*.mat']);
+
+    disp(['Found ' num2str(size(fileMove,1))  ' files, renaming'])
 
     for f = 1:size(fileMove,1)
         tmp = strrep([fileMove(f).folder filesep fileMove(f).name], old{i}, new{i});

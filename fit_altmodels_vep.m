@@ -11,11 +11,11 @@ close all
 %% analysis settings
 
 %%% datatype:
-datatype = 'vep'; %'vep' or 'vep_psychophysics'
+datatype = 'vep_psychophysics'; %'vep' or 'vep_psychophysics'
 
 %%% other settings
 useAbs      = 1;
-clean_range = 0.4;
+clean_range = 0.3;
 condition   = 'congruent';
 
 %%% default calibration settings
@@ -38,8 +38,13 @@ elseif strcmp(datatype, 'vep_psychophysics')  %%%% psychophysical data
     saveResultsDir = [cd filesep 'fitdata_vep_psychophysics'  filesep 'model_fits_altmodels'];
 end
 
+plotResultsDir = strrep(saveResultsDir, 'model_fits', 'plots');
+
 if ~isfolder(saveResultsDir)
     mkdir(saveResultsDir);
+end
+if ~isfolder(plotResultsDir)
+    mkdir(plotResultsDir);
 end
 
 %% go
@@ -121,8 +126,8 @@ for i = 1:length(sID)
     % fit
     p.costflag = 1; p = fit('b_s.getErrBinoMean', p, calibfreelist, data);
     % error
-    p.costflag = 0; 
-    [~, p.errMean, data] = b_s.getErrBinoMean(p,data); 
+    p.costflag = 0;
+    [~, p.errMean, data] = b_s.getErrBinoMean(p,data);
     [~, p.errInd, ~] = b_s.getErrBinoInd(p,data);
     disp(['   .. delay: ' num2str(p.delay,4) '    intercept: ' num2str(p.intercept,3) '    slope: ' num2str(p.slope,3)])
     disp(['   .. MSE:   for mean: ' num2str(p.errMean,5) '    for individual trials: ' num2str(p.errInd,5) ]);
@@ -133,19 +138,23 @@ for i = 1:length(sID)
     data.experiment.REcontrast = data.experiment.REcontrast-0.5;
 
     % non-fitting models - get err
-    [p.simpleAverageErr, ~] = b_s.simpleAverage(p, data);
-    [p.simpleMaxErr, ~] = b_s.simpleMax(p, data);
+    [p.simpleAverageErr, meanModelPrediction] = b_s.simpleAverage(p, data);
+    [p.simpleMaxErr, maxModelPrediction] = b_s.simpleMax(p, data);
 
-    % simple softmaxmodel
-    p.model = 'b_s.simpleSmax';
-    p.smax = 1; freeList = 'smax';
-    p.costflag = 1; p = fit('b_s.getErr', p, freeList, data);
-    p.costflag = 0; [p.simpleSmaxErr,~,~,~,~,~,~] = b_s.getErr(p, data);
+    %     % simple softmaxmodel
+    %     p.model = 'b_s.simpleSmax';
+    %     p.smax = 1; freeList = 'smax';
+    %     p.costflag = 1; p = fit('b_s.getErr', p, freeList, data);
+    %     p.costflag = 0; [p.simpleSmaxErr,~,~,~,~,~,~] = b_s.getErr(p, data);
 
     disp('   Errors:')
     disp(['   - ' num2str(p.simpleAverageErr,3) ' mean model'])
     disp(['   - ' num2str(p.simpleMaxErr,3) ' max model'])
-    disp(['   - ' num2str(p.simpleSmaxErr,3) ' simple max model (smax = ' num2str(p.smax,2) ')'])
+    %     disp(['   - ' num2str(p.simpleSmaxErr,3) ' simple max model (smax = ' num2str(p.smax,2) ')'])
+
     save([saveResultsDir filesep sID{i}, '_', p.condition], 'p');
+
+
+
     clear p
 end

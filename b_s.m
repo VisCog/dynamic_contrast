@@ -483,8 +483,8 @@ classdef b_s
             out = out(:)';  % turn output into a row vector
             out = out - 0.5; % go back into -0.5 - 0.5 units
         end
-        
 
+        
         function [err, predModel] = rivalry(p, data)
             % calculates the expected output and err for simple rivalry, no
             % free parameters so fitting and cross-validation unnecessary.

@@ -55,8 +55,8 @@ dataDir = [cd filesep 'output_vep_uncleaned'];
 run([cd '/../subjectList_vep.m']); % puts variable called sID in workspace
 % or individual subjects for when new people added:
 % sID = {'AM_LE_BA_15','AM_LE_LF_16'};
-% sID = {'AM_RE_KC_24'};
-sID = {'AM_RE_CI_20'}
+sID = {'NS_PP_17'};
+
 
 for i = 1:length(sID)
 
@@ -112,8 +112,20 @@ for i = 1:length(sID)
 
     % start with congruent
     disp(' .. processing congruent run')
-    motorData = load([dataDir filesep '..' filesep '..' filesep 'output_vep_psychophysics' ...
-        filesep sID{i} '-motor-congruent.mat']);
+    try
+        motorData = load([dataDir filesep '..' filesep '..' filesep 'output_vep_psychophysics' ...
+            filesep sID{i} '-motor-congruent.mat']);
+    catch ME
+        if (strcmp(ME.identifier,'MATLAB:load:couldNotReadFile'))
+            msg = ['output_vep_psychophysics' filesep sID{i} '-motor-congruent.mat' newline ...
+                'does not exist. You need to process the motor data before' newline ...
+                'processing the VEP data so that the trials can be correctly' newline ...
+                'sorted into "joystick used/not used" trials. ' newline 'Did you do that?'];
+            causeException = MException('MATLAB:myCode:couldNotReadFile',msg);
+            ME = addCause(ME,causeException);
+        end
+        rethrow(ME)
+    end
 
     % copy over motor file info (contains a bit extra info) and replace the
     % joystick position with the VEP

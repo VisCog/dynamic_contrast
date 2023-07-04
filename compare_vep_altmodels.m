@@ -2,7 +2,7 @@
 % alternative models
 
 clear
-%close all
+close all
 
 vepFolder = [cd filesep 'fitdata_vep' filesep 'model_fits_altmodels'];
 psyFolder = [cd filesep 'fitdata_vep_psychophysics' filesep 'model_fits_altmodels'];

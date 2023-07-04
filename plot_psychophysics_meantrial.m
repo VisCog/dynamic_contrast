@@ -12,8 +12,8 @@ close all
 %  'psychophyics' - motor response, original behavioral paper
 %  'vep' - vep response, data from the vep+beh study
 %  'vep_psychophysics' - motor response, data from the vep+beh study
+datatype = 'vep';
 %datatype = 'vep_psychophysics';
-datatype = 'vep_psychophysics';
 %datatype = 'psychophysics';
 
 %%% condition:
@@ -29,15 +29,16 @@ switch lower(datatype)
 end
 
 % for the controls with k1=k2=1
-analysistype = 'ns'; 
+%analysistype = 'ns'; 
+analysistype = '';
 
 %% select subjects
 
 % %%% select all subjects:
-all_sID = sID; clear sID;
+%all_sID = sID; clear sID;
 
 %%% select one subject:
-%all_sID = {'AM_LE_BA_15'};
+all_sID = {'NS_JX_19'};
 
 if strcmpi(analysistype, 'ns')
     % select normally-sighted participants only:
@@ -63,7 +64,6 @@ for i = 1:length(all_sID) % replace this with the sID # to run only 1 person
     disp(sID)
 
     % quick fix for 1 i can't dl
-    if all(sID == 'NS_AA_17'), continue, end
 
     switch lower(datatype)
         case 'psychophysics'
@@ -152,11 +152,11 @@ for i = 1:length(all_sID) % replace this with the sID # to run only 1 person
     mn_modelREfast = rescale(mn_modelREfast, 0, 1);
     mn_respREfast = rescale(mn_respREfast, 0, 1);
 
-
-    mn_modelLEfast = nanmean(modelLEfast);
     mn_respLEfast = nanmean(respLEfast);
+    mn_modelLEfast = nanmean(modelLEfast);
     mn_modelLEfast = mn_modelLEfast- (nanmean(mn_modelLEfast)  - nanmean(respLEfast));
     mn_modelLEfast = rescale(mn_modelLEfast, 0, 1);
+    mn_respLEfast = rescale(mn_respLEfast, 0, 1);
 
 
     plotYmin = 0 - 0.3;
@@ -187,20 +187,22 @@ for i = 1:length(all_sID) % replace this with the sID # to run only 1 person
             'LineStyle',':', 'LineWidth', 3);
         pC2 = plot(data.t, slowSin, 'Color', [175 134 53]/255, ...  % amb slow
             'LineStyle',':', 'LineWidth', 3);
+%         p5 = plot(data.t, mn_modelLEfast,...    % modeled result
+%             '-', 'LineWidth', 5, 'Color', 'red');
         p4 = plot(data.t-p.delay, mn_respLEfast,...           % joystick position
             '-', 'LineWidth', 5, 'Color', 'black');
-        p5 = plot(data.t, mn_modelLEfast,...    % modeled result
-            '-', 'LineWidth', 5, 'Color', 'red');
+
 
     else % else right eye is fellow
         pC1 = plot(data.t, slowSin, 'Color', [51 76 133]/255, ...   % fellow fast
             'LineStyle',':', 'LineWidth', 3);
         pC2 = plot(data.t, fastSin, 'Color', [175 134 53]/255, ...  % amb slow
             'LineStyle',':', 'LineWidth', 3);
+%         p5 = plot(data.t, mn_modelREfast,...    % modeled result
+%             '-', 'LineWidth', 3, 'Color', 'red');
         p4 = plot(data.t-p.delay, mn_respREfast,...           % joystick position
             '-', 'LineWidth', 5, 'Color', 'black');
-        p5 = plot(data.t, mn_modelREfast,...    % modeled result
-            '-', 'LineWidth', 3, 'Color', 'red');
+
     end
 
     % axies
@@ -223,19 +225,21 @@ for i = 1:length(all_sID) % replace this with the sID # to run only 1 person
             'LineStyle',':', 'LineWidth', 3);
         pC2 = plot(data.t, fastSin, 'Color', [175 134 53]/255, ...  % amb fast
             'LineStyle',':', 'LineWidth', 3);
+%         p5 = plot(data.t, mn_modelREfast,...    % modeled result
+%             '-', 'LineWidth', 5, 'Color', 'red');
         p4 = plot(data.t-p.delay, mn_respREfast,...           % joystick position
             '-', 'LineWidth', 5, 'Color', 'black');
-        p5 = plot(data.t, mn_modelREfast,...    % modeled result
-            '-', 'LineWidth', 5, 'Color', 'red');
+
     else
         pC1 = plot(data.t, fastSin, 'Color', [51 76 133]/255, ...   % fellow slow
             'LineStyle',':', 'LineWidth', 3);
         pC2 = plot(data.t, slowSin, 'Color', [175 134 53]/255, ...  % amb fast
             'LineStyle',':', 'LineWidth', 3);
+%         p5 = plot(data.t, mn_modelLEfast,...    % modeled result
+%             '-', 'LineWidth', 5, 'Color', 'red');
         p4 = plot(data.t-p.delay, mn_respLEfast,...           % joystick position
             '-', 'LineWidth', 5, 'Color', 'black');
-        p5 = plot(data.t, mn_modelLEfast,...    % modeled result
-            '-', 'LineWidth', 5, 'Color', 'red');
+
     end
 
 
