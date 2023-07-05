@@ -5,41 +5,53 @@
 % trials where the joystick was used)
 % Participant IDs are listed in current directory's file called subjectList_vep.m
 %
-% <old words deleted> This header needs to be updated
+% <old words deleted> This header needs to be updated but the code is
+% fairly well commented at this point
 
 
 %%
 clear
 close all
 
-%%% analysis details:
-%analysistype   = 'ns';     % 'ns' set k1 = k2 = 1, normal-sighted only
-analysistype    = '';       % '' leave blank for standard analysis
-datatype    = 'vep';  %'vep' or 'vep_psychophysics'
+
+%%%%% analysis details: %%%%%%
+analysistype    = '';
+% analysistype options:
+%   ''          leave blank for standard 
+%   'ns'        set k1 = k2 = 1, fit Us, normal-sighted only
+
+
+datatype    = 'vep_psychophysics';  %'vep' or 'vep_psychophysics'
 condition   = 'congruent';
 savePlotOn      = 1;        % if 1, saves plots
-pauseForPlots   = 0;        % if 1, waits for you to press enter after each plot before continuing 
+pauseForPlots   = 0;        % if 1, waits for you to press enter after each plot before continuing
 
-%%% calibration settings/defaults
+%%%%% calibration settings/defaults %%%%%
 clean_range = 0.3; % calibration: use trials with this min range
 startT      = 1;
 slope       = 1;
+intercept   = 'mean';
 calibFreeList = {'slope', 'intercept', 'delay'};
 joyfunction = 'delay + scale';
-delay       = 0.5; 
-penalizeDly = 3;
+delay       = 0.5;  % intial guess for delay b/w stimulus and motor (sec)
+penalizeDly = 3;    % penalize delays longer than this (sec)
 
-%%% model-fitting settings/defaults
-useAbs      = 1;   % use absolute value formulae
-modelStr    = 'b_s.softmax';
-pp = [1,1]; 
-ptau = NaN; 
-pm = [1 1];
-pk = [1 1]; 
-pU = [0,0,0,0];
-psigma = 1; 
-psmax = 1; 
-poffset = 0;
+%%%%% model-fitting settings/defaults %%%%%
+modelStr    = 'b_s.softmax'; % default to softmax model
+useAbs =    1;   % use absolute value formulae
+pp =        [1,1];
+ptau =      NaN;
+pm =        [1 1];
+psmax =     1;
+monoFreeList = {'k'}; % free parameters for monocular fitting stage (overwritten later if analysistype='ns')
+poffset =   0;
+pk =        [1 1];
+dichFreeList = {'U(2)','U(3)', 'sigma'}; % free parameters for dichoptic fitting stage
+pU =        [0,0,0,0];
+psigma =    1;
+
+
+
 
 %% set up
 
@@ -60,7 +72,7 @@ if strcmpi(analysistype, 'ns')
     disp('%%%%%%%%%%%%%% You''re running the NS-only, fix k1=k2=1 analysis')
     saveResultsDir = strrep(saveResultsDir, 'model_fits', 'model_fits_fixedk');
     disp('%%%%%%%%%%%%%% If that''s unexpected, change analysistype in the code')
-        % select normally-sighted participants only:
+    % select normally-sighted participants only:
     idx = cellfun(@(x) strcmpi(x(1:2),'NS'), sID);
     sID = sID(idx);
 end
@@ -130,7 +142,7 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
     concatResponse  = [data.experiment.binoResponseStart data.experiment.binoResponseEnd];
 
     % put everything in  -0.5 to 0.5 units
-    data.experiment.binoS= concatContrast(1, :)-0.5;
+    data.experiment.binoS        = concatContrast(1,:) - 0.5;
     data.experiment.binoResponse = concatResponse - 0.5;
     nan_indx = round(length(data.experiment.binoS)/2-3:length(data.experiment.binoS)/2+3);
     data.experiment.binoResponse(:, nan_indx) = NaN; % block out switchy bit when concatenating trial
@@ -140,24 +152,31 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
     disp(['# Calib trials = ', num2str(size( data.experiment.binoResponse, 1)),  ...
         ' Good Calib trials = ', num2str(p.n_good)]);
 
+    % Calibration defaults
     p.startT = startT;
-
-    % default to slope of 1, intercept is mean (usually around 0)
     p.slope = slope;
-    p.intercept = -2*nanmean(data.experiment.binoResponse(:));
+    if ischar(intercept)
+        switch lower(intercept)
+            case 'mean'
+                p.intercept = -2*nanmean(data.experiment.binoResponse(:)); %#ok<*NANMEAN>
+            otherwise, disp(['intercept case ' intercept ' undefined']);% break
+        end
+    elseif isnumeric(intercept)
+        p.intercept = intercept;
+    else, disp('intercept undefined'); %break
+    end
     p.junk = 0;
     binoMean.gvals = [];
     p.dt = diff(data.binocular.t(1:2));
     data.binocular.t = 0:p.dt:p.dt*size(data.experiment.binoResponse, 2)-p.dt;
-
     p.joystickfunction = joyfunction;
     p.delay = delay;
     p.penalizeDelay = penalizeDly; % delay  penalization in seconds
 
+    % fit:
     p.costflag = 1; p = fit('b_s.getErrBinoMean', p, calibFreeList, data);
 
-    % Calculate the error, both for mean joystick position and for
-    % indivdual trials
+    % Calculate error, for mean joystick position and for individual trials
     p.costflag = 0;
     [~, p.errMean, data] = b_s.getErrBinoMean(p,data);
     [~, p.errInd, ~] = b_s.getErrBinoInd(p,data);
@@ -177,23 +196,19 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
         input('updated calibration plot - press enter to continue')
     end
 
-    % double check do we need to reshift? thought it was in here ..
-
-    %%  post-calibration data, shift to correct units
-
+    %% Calibration done - move on to main model
     [ data.experiment.response, n_good]  = b_s.cleanData(data.experiment.response, p);
     disp(['#  trials = ', num2str(size( data.experiment.response, 1)),  ...
         ' Good  trials = ', num2str(n_good)]);
-
-    %% Calibration done - move on to main model
 
     % shift units
     data.experiment.response = data.experiment.response-0.5;
     data.experiment.LEcontrast = data.experiment.LEcontrast-0.5;
     data.experiment.REcontrast = data.experiment.REcontrast-0.5;
 
+
     %%%%%%%%%%%%
-    %% Step 1 %% Fit monocular trial portions, obtain attenuation estimates
+    %% Step 1 %% Fit monocular trial portions
     %%%%%%%%%%%%
     disp(' .. fitting attenuation on dropped cycles (monocular data)')
 
@@ -218,28 +233,28 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
 
     % Run the fit - allow k to vary, fix Us to 0 and sigma to 1
     p.model = modelStr;
-    p.p = pp; 
-    p.tau = ptau; 
+    p.p = pp;
+    p.tau = ptau;
     p.m = pm;
-    p.k = pk; 
+    p.k = pk;
     p.U = pU;
-    p.sigma = psigma; 
-    p.smax = psmax; 
+    p.sigma = psigma;
+    p.smax = psmax;
     p.offset = poffset;
 
-    if strcmpi(analysistype, 'ns')
-        % doing the normal-sighted analysis where k1=k2=1
-        % skip the fit for this step, do offset only
-        freeList = {'offset'};
-        p.costflag = 1; p = fit('b_s.getErr', p, freeList, monoData);
-        disp(['   .. offset: ' num2str(round(p.offset,3)) ])
+    switch analysistype
+        case 'ns'
+            % doing the normal-sighted analysis where k1=k2=1
+            % skip the fit for this step, do offset only
+            freeList = {'offset'};
+            p.costflag = 1; p = fit('b_s.getErr', p, freeList, monoData);
+            disp(['   .. offset: ' num2str(round(p.offset,3)) ])
 
-    else % do the regular old analysis
-        freeList = {'k', 'offset'};
-        p.costflag = 1; p = fit('b_s.getErr', p, freeList, monoData);
-        disp(['   .. initial k left: ' num2str(round(p.k(1),3)) '   initial k right: ' num2str(round(p.k(2),3))])
-        % Normalize relative weights
-        p.k = p.k / (max(p.k));
+        otherwise % do the regular old analysis
+            p.costflag = 1; p = fit('b_s.getErr', p, monoFreeList, monoData);
+            disp(['   .. initial k left: ' num2str(round(p.k(1),3)) '   initial k right: ' num2str(round(p.k(2),3))])
+            % Normalize relative weights
+            p.k = p.k / (max(p.k));
     end
 
     % Grab model error (all data)
@@ -250,7 +265,7 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
 
 
     %%%%%%%%%%%%
-    %% Step 2 %% Fit dichoptic trial portions, obtain suppression estimates
+    %% Step 2 %% Fit dichoptic trial portions
     %%%%%%%%%%%%
     disp(' .. fitting normalization on dichoptic data')
     % as above - replace monocular trial portions with NaN so they are not
@@ -260,10 +275,8 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
     dichData.experiment.REcontrast(monoTrialsIndex) = NaN;
     dichData.experiment.response(monoTrialsIndex) = NaN;
 
-    % run the fit - use k values from above, estimate U2 U3
-    %freeList = {'U(2)','U(3)'};
-     freeList = {'U(2)','U(3)', 'sigma'};
-    p.costflag = 1;  p = fit('b_s.getErr',p, freeList, dichData);
+    % run the fit
+    p.costflag = 1;  p = fit('b_s.getErr',p, dichFreeList, dichData);
 
     if p.abs == 1
         % previously only in the equation - leads to some
@@ -274,7 +287,7 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
     end
 
     % grab error (all data)
-    p.costflag = 0;  [p.step2normalizationErr,predModel_softmax,~,data.dich,~,~,~] = b_s.getErr(p, data);
+    p.costflag = 0;  [p.step2normalizationErr,~,~,~,~,~,~] = b_s.getErr(p, data);
     % display outputs
     disp(['   .. U2 (right influence on left eye response): ' num2str(round(p.U(2),4))]);
     disp(['   .. U3 (left influence on right eye response): ' num2str(round(p.U(3),4))]);
@@ -301,28 +314,103 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
         p.k = p.k / (max(p.k));
         disp(['   .. normed k left: ' num2str(round(p.k(1),3)) '    normed k right: ' num2str(round(p.k(2),3))])
         p.costflag = 0;
-        [p.softmaxErr,predModel_softmax,~,data,~,~,~] = b_s.getErr(p, data);
+        [p.softmaxErr,predModel_softmax,~,~,~,~,~] = b_s.getErr(p, data);
+        p.predModel_softmax = cell2mat(predModel_softmax');
         disp(['   .. FINAL model MSE (all data): ' num2str(round(p.softmaxErr, 4)) ])
     end
-    %
-    %     if strcmpi(analysistype, 'ns')
-    %
-    %         % try smax!
-    %         freeList = {'smax'};
-    %         p.costflag = 1; p = fit('b_s.getErr', p, freeList, data);
-    %         disp(['   .. smax: ' num2str(p.smax,3)]);
-    %         p.costflag = 0;
-    %         [p.softmaxErr,predModel_softmax,~,data,~,~,~] = b_s.getErr(p, data);
-    %         disp(['   .. FINAL model MSE (all data): ' num2str(round(p.softmaxErr, 4)) ])
-    %     end
 
 
-    %     %% grab cross-validated error
-    %     tmp_p = p;
-    %     % using all the data, not just dichoptic
-    %     tmp_p.costflag = 0; kfoldErr = b_s.cross_calibrate(tmp_p,data, freeList);
-    %     tmp_p.kfoldErr  = mean(kfoldErr);    tmp_p.kfoldStd = std(kfoldErr);
-    %     p.crossvalerr = tmp_p;
+%         %% grab cross-validated error
+%         % ask IF if that freelist is correct for cross-val error (it's
+%         % whatever freeList was set to above on the last step)
+%         tmp_p = p;
+%         % using all the data, not just dichoptic
+%         tmp_p.costflag = 0; kfoldErr = b_s.cross_calibrate(tmp_p,data, freeList);
+%         tmp_p.kfoldErr  = mean(kfoldErr);    tmp_p.kfoldStd = std(kfoldErr);
+%         p.crossvalerr = tmp_p;
+
+    %% mean/max/minkowski models
+    % three models: mean(L,R)  max(L,R), and single-parameter minkowski
+    % equiation.
+    %
+    % unlike above where we analyze individual trials, here we compare the
+    % participant's response to each of these three models by looking at
+    % their MEAN response over all trials. Additionally, the mean response
+    % is scaled to circumvent regression to the mean problems.
+
+    % some of this repeats steps from above but want to keep it modular in
+    % case things need to differ:
+    minkData = data;
+
+    % we don't need to split into left fast/right fast trials to obtain the
+    % mean since we treat the eyes as equally-weighted, however we do need
+    % to NaN out the monocular portions
+    diffLE = diff(minkData.experiment.LEcontrast,1,2);
+    diffRE = diff(minkData.experiment.REcontrast,1,2);
+    zeroContrastInLE = [zeros(size(diffLE,1),1) (diffLE == 0)];
+    zeroContrastInRE = [zeros(size(diffRE,1),1) (diffRE == 0)];
+
+    % index for all monocular trials, left OR right
+    monoTrialsIndex = zeroContrastInLE | zeroContrastInRE;
+
+    % get rid of them for the averaging:
+    minkData.experiment.LEcontrast(monoTrialsIndex) = NaN;
+    minkData.experiment.REcontrast(monoTrialsIndex) = NaN;
+    minkData.experiment.response(monoTrialsIndex) = NaN;
+
+    % Use the getErr function to obtain the calibrated joystick position
+    % for this data (we don't need the model prediction for this part)
+    [~, ~, ~, respJoyCalib, ~, ~, ~] = b_s.getErr(p, minkData);
+
+
+    respJoyCalib = cell2mat(respJoyCalib'); %reshape to trials x timepoints
+    mn_resp = nanmean(respJoyCalib);
+
+    % generate the stimuli timecourses:
+    fastSin = ((sin(2*pi*data.t/6)+1)/2);
+    slowSin = ((sin(2*pi*data.t/8)+1)/2);
+
+    % after running through calibration there will be nans at the end due
+    % to delay - these mess up the minkowski fit function - chop off NaNs
+    nan_idx = isnan(mn_resp);
+    mn_resp = mn_resp(~nan_idx);
+    fastSin = fastSin(~nan_idx);
+    slowSin = slowSin(~nan_idx);
+
+    mn_resp_scaled = rescale(mn_resp, 0, 1);% range between 0 and 1
+
+
+    S = [fastSin;slowSin]';
+
+    % generate the predicted model values:
+    meanModelPrediction = mean(S,2)';
+    maxModelPrediction = max(S, [], 2)';
+
+    % generate fit/error values
+    p.n = 1;
+    p.costflag = 1; p = fit('b_s.minkowski', p, {'n'}, S, mn_resp_scaled'); % fit minkowski
+    p.costflag = 0;
+    [mink_err, ~, mink_pred] = b_s.minkowski(p, S, mn_resp_scaled');
+
+
+    % save these details for later in same format as above
+    p.meanResponseScaled = mn_resp_scaled;
+    p.predModel_meanModel = meanModelPrediction;
+    p.meanModelErr = sum((meanModelPrediction-mn_resp_scaled).^2)/length(mn_resp_scaled);
+    p.predModel_maxModel = maxModelPrediction;
+    p.maxModelErr = sum((maxModelPrediction-mn_resp_scaled).^2)/length(mn_resp_scaled);
+    p.predModel_minkModel = mink_pred';
+    p.minkModelErr = mink_err;
+
+    % display outputs
+    disp(' .. simpler model fits')
+
+    disp(['   .. mean model MSE: ' num2str(round(p.meanModelErr,4))]);
+    disp(['   .. max model MSE: ' num2str(round(p.maxModelErr,4))]);
+    disp(['   .. Minkowski parameter: ' num2str(round(p.n,2))]);
+    disp(['   .. Minkowski model MSE: ' num2str(round(p.minkModelErr,4))]);
+
+    %% save it
 
     save([saveResultsDir filesep sID{i}, '_', p.condition], 'p');
     clear p

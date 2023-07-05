@@ -630,7 +630,15 @@ classdef b_s
             out = out-.5;
                     p.S = abs(p.S); p.w = abs(p.w); % used in their abs 
         end
+        function [err, p, out] = minkowski(p, S, calibrated_data)
+            out = ((S(:, 1).^abs(p.n)+S(:, 2).^abs(p.n))/2).^(1/abs(p.n));
+            err = sum((out-calibrated_data).^2);
+            if p.costflag == 0
+                err = err/length(calibrated_data);
+            end 
 
+        end
+        
         function plot_alt_models(p, plotStr, varargin)
             if nargin ==2;      normalize_flag = 0;
             else    normalize_flag = varargin{1};       end

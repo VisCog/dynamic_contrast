@@ -4,6 +4,11 @@
 % or the corresponding psychophysical data) using a variety of models that
 % are not our regular model.
 %
+%%% NOTE mean/max/minkowski modeling has been merged with our main fit
+%%% script, fit_vep_dynamic_contrast. I'm keeping this script for
+%%% historical reasons in case I need to double-check anything but consider
+%%% it obsolete and I'll delete it soon once I confirm no more information
+%%% is needed out of here.
 
 clear
 close all
