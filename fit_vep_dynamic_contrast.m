@@ -24,7 +24,7 @@ analysistype    = '';
 datatype    = 'vep_psychophysics';  %'vep' or 'vep_psychophysics'
 condition   = 'congruent';
 savePlotOn      = 1;        % if 1, saves plots
-pauseForPlots   = 0;        % if 1, waits for you to press enter after each plot before continuing
+pauseForPlots   = 1;        % if 1, waits for you to press enter after each plot before continuing
 
 %%%%% calibration settings/defaults %%%%%
 clean_range = 0.3; % calibration: use trials with this min range
@@ -93,6 +93,10 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
 
     % load raw data:
     file = dir([rawDataDir filesep sID{i} '*-',p.condition, '.mat']);
+    if isempty(file)
+        disp('   ~~~ no data detected for this condition, skipping ~~~');
+        continue
+    end
     load([file.folder filesep file.name]);
     % puts a struct called congruentVep or orthogonalVep into the workplace
     if strcmp(datatype, 'vep')
@@ -329,6 +333,7 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
 %         tmp_p.kfoldErr  = mean(kfoldErr);    tmp_p.kfoldStd = std(kfoldErr);
 %         p.crossvalerr = tmp_p;
 
+
     %% mean/max/minkowski models
     % three models: mean(L,R)  max(L,R), and single-parameter minkowski
     % equiation.
@@ -409,6 +414,35 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
     disp(['   .. max model MSE: ' num2str(round(p.maxModelErr,4))]);
     disp(['   .. Minkowski parameter: ' num2str(round(p.n,2))]);
     disp(['   .. Minkowski model MSE: ' num2str(round(p.minkModelErr,4))]);
+
+    % now adding the simple weighted average
+    % now we DO need to split into left fast/right fast trials
+
+    % some of this repeats steps from above but want to keep it modular in
+    % case things need to differ:
+    wghtavgData = data;
+    diffLE = diff(wghtavgData.experiment.LEcontrast,1,2);
+    diffRE = diff(wghtavgData.experiment.REcontrast,1,2);
+    zeroContrastInLE = [zeros(size(diffLE,1),1) (diffLE == 0)];
+    zeroContrastInRE = [zeros(size(diffRE,1),1) (diffRE == 0)];
+    % index for all monocular trials, left OR right
+    monoTrialsIndex = zeroContrastInLE | zeroContrastInRE;
+    % get rid of them for the averaging:
+    wghtavgData.experiment.LEcontrast(monoTrialsIndex) = NaN;
+    wghtavgData.experiment.REcontrast(monoTrialsIndex) = NaN;
+    wghtavgData.experiment.response(monoTrialsIndex) = NaN;
+    % Use the getErr function to obtain the calibrated joystick position
+    % for this data (we don't need the model prediction for this part)
+    [~, ~, ~, respJoyCalib, ~, ~, ~] = b_s.getErr(p, wghtavgData);
+    respJoyCalib = cell2mat(respJoyCalib'); %reshape to trials x timepoints
+
+
+    p.wa = 0.5;
+    p.costflag = 1; p = fit('b_s.weightedAverage', p, {'wa'}, S, mn_resp_scaled'); % fit minkowski
+    p.costflag = 0;
+    [mink_err, ~, mink_pred] = b_s.minkowski(p, S, mn_resp_scaled');
+    
+
 
     %% save it
 

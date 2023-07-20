@@ -8,6 +8,7 @@ psyFolder = [cd filesep 'fitdata_vep_psychophysics' filesep 'model_fits'];
 vepFiles = dir([vepFolder filesep '*congruent.mat']);
 psyFiles = dir([psyFolder filesep '*congruent.mat']);
 
+
 % grouping variable
 idx_psy_ns = find(cellfun(@(x) strcmpi(x(1:2),'NS'), {psyFiles.name}));
 idx_psy_am = find(cellfun(@(x) strcmpi(x(1:2),'AM'), {psyFiles.name}));
@@ -30,12 +31,29 @@ all_psy = [];
 for i = 1:length(psyFiles)
     load([psyFiles(i).folder filesep psyFiles(i).name]);
     all_psy = [all_psy p];
+    clear p
 end
 all_vep = [];
 for i = 1:length(vepFiles)
     load([vepFiles(i).folder filesep vepFiles(i).name]);
     all_vep = [all_vep p];
+    clear p
 end
+
+% vepFiles_orth = dir([vepFolder filesep '*orthogonal.mat']);
+% psyFiles_orth = dir([psyFolder filesep '*orthogonal.mat']);
+% all_psy_orth = [];
+% for i = 1:length(psyFiles_orth)
+%     load([psyFiles_orth(i).folder filesep psyFiles_orth(i).name]);
+%     all_psy_orth = [all_psy_orth p];
+%     clear p
+% end
+% all_vep_orth = [];
+% for i = 1:length(vepFiles_orth)
+%     load([vepFiles_orth(i).folder filesep vepFiles_orth(i).name]);
+%     all_vep_orth = [all_vep_orth p];
+%     clear p
+% end
 
 ymaxval = [all_vep.meanModelErr all_psy.meanModelErr ...
     all_vep.maxModelErr all_psy.maxModelErr ...
@@ -78,12 +96,28 @@ quickPlot([all_vep.n], [all_psy.n], grp_vep, grp_psy, 0)
 ylabel('minkowski parameter')
 set(gca, 'FontSize', 12)
 title('minkowski parameter')
-% crit = 40; % outlier crit for plot
-% outlr = [all_psy.n]>crit;
-% ylim([0 crit]);
-% tmp = [all_psy.n]; 
-% text(2, crit+1, [num2str(sum(outlr)) ' values above ' num2str(crit) ' not shown'], 'HorizontalAlignment', 'center')
 set(gca, 'YScale', 'log')
+
+tmp = [all_vep.n];
+vep_n = tmp(grp_vep==3);
+disp(['Geometric mean for controls (n = ' num2str(sum(grp_vep==3)) '), VEP: ' num2str(geomean(vep_n),4)])
+tmp = [all_psy.n];
+psy_n = tmp(grp_psy==3);
+disp(['Geometric mean for controls (n = ' num2str(sum(grp_psy==3)) '), psychophysics: ' num2str(geomean(psy_n),4)])
+
+
+disp(['Median for controls (n = ' num2str(sum(grp_vep==3)) '), VEP: ' num2str(median(vep_n),4)])
+disp(['Median for controls (n = ' num2str(sum(grp_psy==3)) '), psychophysics: ' num2str(median(psy_n),4)])
+
+
+log_vep_n = log(vep_n);
+log_psy_n = log(psy_n);
+[h,p,ci,stats] = ttest(log_vep_n, log_psy_n);
+disp(['Paired t-test on log-transformed values: t(' num2str(stats.df) ') = ' num2str(abs(stats.tstat),3) ', p = ' num2str(p,3)])
+[p,h,stats] = signrank(vep_n, psy_n,'method','approximate');
+disp(['Paired sign-rank test on original values: Z = ' num2str(abs(stats.zval),3) ', p = ' num2str(p,3)])
+
+
 
 function quickPlot(vepvector, psyvector, vepgroup, psygroup, legendtf)
 c = ['r', 'g', 'b'];
@@ -100,9 +134,7 @@ for g = unique(tmp(~isnan(tmp)))'
 end
 
 xlim([0.5 2.5])
-scatter([1 2], [mean(vepvector) mean(psyvector)], 50, 'k', 'filled');
-text(1.1, mean(vepvector), [num2str(mean(vepvector),3)])
-text(2.1, mean(psyvector), [num2str(mean(psyvector),3)])
+plotMean(vepvector, psyvector, vepgroup, psygroup, 'median')
 
 xticks([1 2])
 xticklabels({'VEP', 'PSYCHO'})
@@ -112,4 +144,27 @@ if legendtf == 1
     l3 = scatter(nan, nan, c(3), 'DisplayName', names{3});
     legend([l1 l2 l3])
 end
+end
+
+function plotMean(vepvector, psyvector, vepgroup, psygroup, type)
+% hard-coded as controls only
+switch type
+    case 'arithmetic'
+        tmpvep = mean(vepvector(vepgroup == 3));
+        tmppsy = mean(psyvector(psygroup == 3));
+
+    case 'geometric'
+        tmpvep = geomean(vepvector(vepgroup == 3));
+        tmppsy = geomean(psyvector(psygroup == 3));
+
+    case 'harmonic'
+        tmpvep = harmmean(vepvector(vepgroup == 3));
+        tmppsy = harmmean(psyvector(psygroup == 3));
+    case 'median'
+        tmpvep = median(vepvector(vepgroup == 3));
+        tmppsy = median(psyvector(psygroup == 3));
+end
+scatter([1 2], [tmpvep tmppsy], 50, 'k', 'filled');
+text(1.1, tmpvep, [num2str(tmpvep,3)])
+text(2.1, tmppsy, [num2str(tmppsy,3)])
 end

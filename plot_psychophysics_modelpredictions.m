@@ -12,8 +12,8 @@ clear
 %  'psychophyics' - motor response, original behavioral paper
 %  'vep' - vep response, data from the vep+beh study
 %  'vep_psychophysics' - motor response, data from the vep+beh study
-datatype = 'vep_psychophysics';
 %datatype = 'vep_psychophysics';
+datatype = 'vep';
 
 %%% condition:
 %  'congruent' or 'orthogonal' - only used for vep+beh study behavior
@@ -43,6 +43,8 @@ saveResultsDir = [cd filesep 'fitdata_' datatype filesep 'plots']; % where to sa
 
 %%
 
+allSubjectResponse = nan(length(all_sID), 720);
+
 for i = 1:length(all_sID) % replace this with the sID # to run only 1 person
     sID = all_sID{i};
     disp(sID)
@@ -63,6 +65,10 @@ for i = 1:length(all_sID) % replace this with the sID # to run only 1 person
     end
 
     %% load data and params
+    if isempty(dataFile)
+        disp(' ~~~ no data for this condition ~~~')
+        continue
+    end
     data = load([dataFile.folder filesep dataFile.name]);
     if strcmpi(datatype(1:3), 'vep')
         switch lower(datatype)
@@ -84,6 +90,7 @@ for i = 1:length(all_sID) % replace this with the sID # to run only 1 person
 
     end
 
+    allSubjectResponse(i,1:length(p.meanResponseScaled)) = p.meanResponseScaled;
 
     %% Plot - calculations
 
@@ -97,12 +104,124 @@ for i = 1:length(all_sID) % replace this with the sID # to run only 1 person
 
 
     %% Plot - figure
+    if 0
+        fs=20;%font size
+        fn='Arial';
+        labelsOn = 1;
+
+        fig1 = figure(1); set(gcf, 'Name', [sID ' (' datatype ')']);
+        clf; hold on;
+        tiledlayout(3,2);
+
+        % Top panel
+        nexttile([1 2]); % mean model
+        hold on; set(gca, 'FontSize', fs, 'FontName', fn);
+
+        pC1 = plot(data.t, fastSin, 'Color', [51 76 133]/255, ...   %  fast stim
+            'LineStyle',':', 'LineWidth', 3);
+        pC2 = plot(data.t, slowSin, 'Color', [175 134 53]/255, ...  %  slow stim
+            'LineStyle',':', 'LineWidth', 3);
+        pM = plot(t, p.predModel_meanModel,...           % model
+            '-', 'LineWidth', 5, 'Color', 'red', 'DisplayName', 'mean model');
+        pR = plot(t, p.meanResponseScaled,...           % joystick position (calibrated)
+            '-', 'LineWidth', 5, 'Color', 'black', 'DisplayName', 'joystick');
+
+        % axies
+        xlim([min(data.t)-.5 round(data.t(end))+.5]);
+        xticks([0:6:round(data.t(end))]);
+        ylim([plotYmin plotYmax]);
+        yticks([0 0.5 1]);
+        yticklabels({'0.0', '0.5', '1.0'});
+        if labelsOn == 1
+            xlabel('time (sec)')
+            ylabel('contrast')
+        end
+        %   title('mean model')
+        title([sID ' - ' datatype], 'interpreter', 'none')
+        legend([pM pR], 'Location', 'eastoutside');
+        text(0, 1.2, ['model MSE: ' num2str(p.meanModelErr,4)])
+
+        % Middle Panel
+        nexttile([1 2]); % max model
+        hold on; set(gca, 'FontSize', fs, 'FontName', fn);
+
+        pC1 = plot(data.t, fastSin, 'Color', [51 76 133]/255, ...   %  fast stim
+            'LineStyle',':', 'LineWidth', 3);
+        pC2 = plot(data.t, slowSin, 'Color', [175 134 53]/255, ...  %  slow stim
+            'LineStyle',':', 'LineWidth', 3);
+        pM = plot(t, p.predModel_maxModel,...           % model
+            '-', 'LineWidth', 5, 'Color', 'red', 'DisplayName', 'max model');
+        pR = plot(t, p.meanResponseScaled,...           % joystick position (calibrated)
+            '-', 'LineWidth', 5, 'Color', 'black', 'DisplayName', 'joystick');
+        %   title('max model')
+
+        % axies
+        xlim([min(data.t)-.5 round(data.t(end))+.5]);
+        xticks([0:6:round(data.t(end))]);
+        ylim([plotYmin plotYmax]);
+        yticks([0 0.5 1]);
+        yticklabels({'0.0', '0.5', '1.0'});
+        if labelsOn == 1
+            xlabel('time (sec)')
+            ylabel('contrast')
+        end
+        legend([pM pR], 'Location', 'eastoutside');
+        text(0, 1.2, ['model MSE: ' num2str(p.maxModelErr,4)])
+
+        % Bottom Panel
+        nexttile([1 2]); % minkowski model
+        hold on; set(gca, 'FontSize', fs, 'FontName', fn);
+
+        pC1 = plot(data.t, fastSin, 'Color', [51 76 133]/255, ...   %  fast stim
+            'LineStyle',':', 'LineWidth', 3);
+        pC2 = plot(data.t, slowSin, 'Color', [175 134 53]/255, ...  %  slow stim
+            'LineStyle',':', 'LineWidth', 3);
+        pM = plot(t, p.predModel_minkModel,...           % model
+            '-', 'LineWidth', 5, 'Color', 'red', 'DisplayName', 'minkowski model');
+        pR = plot(t, p.meanResponseScaled,...           % joystick position (calibrated)
+            '-', 'LineWidth', 5, 'Color', 'black', 'DisplayName', 'joystick');
+        %   title('minkowski model')
+
+        % axies
+        xlim([min(data.t)-.5 round(data.t(end))+.5]);
+        xticks([0:6:round(data.t(end))]);
+        ylim([plotYmin plotYmax]);
+        yticks([0 0.5 1]);
+        yticklabels({'0.0', '0.5', '1.0'});
+        if labelsOn == 1
+            xlabel('time (sec)')
+            ylabel('contrast')
+        end
+        legend([pM pR], 'Location', 'eastoutside');
+        text(0, 1.2, ['model MSE: ' num2str(p.minkModelErr,4) '; p.n = ' num2str(p.n,2)])
+
+        pause;
+
+        %%% fig save
+        savname = [saveResultsDir filesep sID '-figplot-trialmeans-' condition '.fig'];
+        saveas(fig1,savname)
+    end
+end
+
+if 1
+
+    tmp = p;
+    clear p
+    p.costflag=0;
+  %  p.n = 8.798;
+  p.n = 0.9799;
+    [mink_err, ~, mink_pred] = b_s.minkowski(p, [fastSin;slowSin]', mean(allSubjectResponse)');
+
+    mean_prediction = mean([fastSin;slowSin]);
+    max_prediction = max([fastSin;slowSin]);
+
+    t=data.t;
 
     fs=20;%font size
     fn='Arial';
     labelsOn = 1;
 
-    fig1 = figure(1); set(gcf, 'Name', [sID ' (' datatype ')']);
+    fig1 = figure(1); set(gcf, 'Name', ['Mean of all participants (n = ' num2str(length(all_sID)) ', ' datatype ' data)']);
     clf; hold on;
     tiledlayout(3,2);
 
@@ -110,18 +229,18 @@ for i = 1:length(all_sID) % replace this with the sID # to run only 1 person
     nexttile([1 2]); % mean model
     hold on; set(gca, 'FontSize', fs, 'FontName', fn);
 
-    pC1 = plot(data.t, fastSin, 'Color', [51 76 133]/255, ...   %  fast stim
+    pC1 = plot(t, fastSin, 'Color', [51 76 133]/255, ...   %  fast stim
         'LineStyle',':', 'LineWidth', 3);
-    pC2 = plot(data.t, slowSin, 'Color', [175 134 53]/255, ...  %  slow stim
+    pC2 = plot(t, slowSin, 'Color', [175 134 53]/255, ...  %  slow stim
         'LineStyle',':', 'LineWidth', 3);
-    pM = plot(t, p.predModel_meanModel,...           % model
+    pM = plot(t, mean_prediction,...           % model
         '-', 'LineWidth', 5, 'Color', 'red', 'DisplayName', 'mean model');
-    pR = plot(t, p.meanResponseScaled,...           % joystick position (calibrated)
+    pR = plot(t, mean(allSubjectResponse),...           % joystick position (calibrated)
         '-', 'LineWidth', 5, 'Color', 'black', 'DisplayName', 'joystick');
 
     % axies
-    xlim([min(data.t)-.5 round(data.t(end))+.5]);
-    xticks([0:6:round(data.t(end))]);
+    xlim([min(t)-.5 round(t(end))+.5]);
+    xticks([0:6:round(t(end))]);
     ylim([plotYmin plotYmax]);
     yticks([0 0.5 1]);
     yticklabels({'0.0', '0.5', '1.0'});
@@ -129,28 +248,25 @@ for i = 1:length(all_sID) % replace this with the sID # to run only 1 person
         xlabel('time (sec)')
         ylabel('contrast')
     end
-    %   title('mean model')
-    title([sID ' - ' datatype], 'interpreter', 'none')
+    title(['Mean of all participants (n = ' num2str(length(all_sID)) ', ' datatype ' data)'], 'interpreter', 'none')
     legend([pM pR], 'Location', 'eastoutside');
-    text(0, 1.2, ['model MSE: ' num2str(p.meanModelErr,4)])
 
     % Middle Panel
     nexttile([1 2]); % max model
     hold on; set(gca, 'FontSize', fs, 'FontName', fn);
 
-    pC1 = plot(data.t, fastSin, 'Color', [51 76 133]/255, ...   %  fast stim
+    pC1 = plot(t, fastSin, 'Color', [51 76 133]/255, ...   %  fast stim
         'LineStyle',':', 'LineWidth', 3);
-    pC2 = plot(data.t, slowSin, 'Color', [175 134 53]/255, ...  %  slow stim
+    pC2 = plot(t, slowSin, 'Color', [175 134 53]/255, ...  %  slow stim
         'LineStyle',':', 'LineWidth', 3);
-    pM = plot(t, p.predModel_maxModel,...           % model
+    pM = plot(t, max_prediction,...           % model
         '-', 'LineWidth', 5, 'Color', 'red', 'DisplayName', 'max model');
-    pR = plot(t, p.meanResponseScaled,...           % joystick position (calibrated)
+    pR = plot(t, mean(allSubjectResponse),...           % joystick position (calibrated)
         '-', 'LineWidth', 5, 'Color', 'black', 'DisplayName', 'joystick');
-    %   title('max model')
 
     % axies
-    xlim([min(data.t)-.5 round(data.t(end))+.5]);
-    xticks([0:6:round(data.t(end))]);
+    xlim([min(t)-.5 round(t(end))+.5]);
+    xticks([0:6:round(t(end))]);
     ylim([plotYmin plotYmax]);
     yticks([0 0.5 1]);
     yticklabels({'0.0', '0.5', '1.0'});
@@ -159,25 +275,23 @@ for i = 1:length(all_sID) % replace this with the sID # to run only 1 person
         ylabel('contrast')
     end
     legend([pM pR], 'Location', 'eastoutside');
-    text(0, 1.2, ['model MSE: ' num2str(p.maxModelErr,4)])
 
     % Bottom Panel
     nexttile([1 2]); % minkowski model
     hold on; set(gca, 'FontSize', fs, 'FontName', fn);
 
-    pC1 = plot(data.t, fastSin, 'Color', [51 76 133]/255, ...   %  fast stim
+    pC1 = plot(t, fastSin, 'Color', [51 76 133]/255, ...   %  fast stim
         'LineStyle',':', 'LineWidth', 3);
-    pC2 = plot(data.t, slowSin, 'Color', [175 134 53]/255, ...  %  slow stim
+    pC2 = plot(t, slowSin, 'Color', [175 134 53]/255, ...  %  slow stim
         'LineStyle',':', 'LineWidth', 3);
-    pM = plot(t, p.predModel_minkModel,...           % model
+    pM = plot(t, mink_pred,...           % model
         '-', 'LineWidth', 5, 'Color', 'red', 'DisplayName', 'minkowski model');
-    pR = plot(t, p.meanResponseScaled,...           % joystick position (calibrated)
+    pR = plot(t, mean(allSubjectResponse),...           % joystick position (calibrated)
         '-', 'LineWidth', 5, 'Color', 'black', 'DisplayName', 'joystick');
-    %   title('minkowski model')
 
     % axies
-    xlim([min(data.t)-.5 round(data.t(end))+.5]);
-    xticks([0:6:round(data.t(end))]);
+    xlim([min(t)-.5 round(t(end))+.5]);
+    xticks([0:6:round(t(end))]);
     ylim([plotYmin plotYmax]);
     yticks([0 0.5 1]);
     yticklabels({'0.0', '0.5', '1.0'});
@@ -186,11 +300,6 @@ for i = 1:length(all_sID) % replace this with the sID # to run only 1 person
         ylabel('contrast')
     end
     legend([pM pR], 'Location', 'eastoutside');
-    text(0, 1.2, ['model MSE: ' num2str(p.minkModelErr,4) '; p.n = ' num2str(p.n,2)])
+    text(0, 1.2, ['minkowski parameter (p.n) = ' num2str(p.n)], 'FontSize', 12)
 
-    pause;
-
-    %%% fig save
-    savname = [saveResultsDir filesep sID '-figplot-trialmeans.fig'];
-    saveas(fig1,savname)
 end
