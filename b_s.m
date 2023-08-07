@@ -199,9 +199,9 @@ classdef b_s
             h(3) = plot(data.binocular.t,data.experiment.binoMeanRespCalib,'r-', 'LineWidth', 1);  % plot calibrated joystick response
 
             xlabel('Time (s)'); ylabel('Contrast');
-            legend(h, {'presented', 'response', 'calibration'}, 'location', 'northwest');  
+            legend(h, {'presented', 'response', 'calibration'}, 'location', 'northwest');
             grid;
-            
+
             if exist('outputdir','var')
                 saveas(gcf, [outputdir filesep data.sID filesep ...
                     data.sID '-Joystick-Calibration-respFunc.fig']);
@@ -244,7 +244,7 @@ classdef b_s
                 respJoy{i} = data.experiment.response(subset(i),ii); % data.experiment.response(i,:) has the response for that particular run
                 respJoyCalib{i}= b_s.joyFunction(p,respJoy{i}); % pass through calibration function
                 id = ~isnan(respJoy{i}) & ~isnan(respJoyCalib{i});
-                
+
                 tmp = sum((predModel{i}(id)-respJoyCalib{i}(id)).^2);
                 err = err + tmp;
                 n = n+sum(id); % count the number of data points, don't divide by this if costflag so the two types of error don't get confused
@@ -358,7 +358,7 @@ classdef b_s
         % k(1) = left, k(2) = right
         % set p.k = [1 1] for no effect
         function [out, p] = linear_attenuation(p, in)
-        if ~isfield(p, 'offset'), p.offset = 0; end
+            if ~isfield(p, 'offset'), p.offset = 0; end
             if ~isfield(p, 'k'), p.k = [1 1]; end
             if ~isfield(p, 'abs'), p.abs = 0; end
             for i = 1:length(p.k)
@@ -382,8 +382,8 @@ classdef b_s
             if ~isfield(p, 'sigma'); p.sigma = 1; end
             if ~isfield(p, 'abs'), p.abs = 0; end
             if p.abs == 1
-                  out(:,1) = in(:,1)./(abs(p.U(1))*in(:,1) + abs(p.U(2))*in(:,2)+abs(p.sigma));
-                  out(:,2) = in(:,2)./(abs(p.U(3))*in(:,1) + abs(p.U(4))*in(:,2)+abs(p.sigma));
+                out(:,1) = in(:,1)./(abs(p.U(1))*in(:,1) + abs(p.U(2))*in(:,2)+abs(p.sigma));
+                out(:,2) = in(:,2)./(abs(p.U(3))*in(:,1) + abs(p.U(4))*in(:,2)+abs(p.sigma));
 
             elseif p.abs == 0
                 out(:,1) = in(:,1)./(p.U(1)*in(:,1) + p.U(2)*in(:,2)+p.sigma);
@@ -426,7 +426,7 @@ classdef b_s
                 test_ind =find(tt==f);
 
                 % do the training
-              %  p.costflag = 1; p = fitcon('b_s.getErr',p, freeList, data, train_ind);
+                %  p.costflag = 1; p = fitcon('b_s.getErr',p, freeList, data, train_ind);
                 p.costflag = 1; p = fit('b_s.getErr',p, freeList, data, train_ind);
                 % grab error for this model fit, don't include the limit
                 % costs
@@ -484,7 +484,7 @@ classdef b_s
             out = out - 0.5; % go back into -0.5 - 0.5 units
         end
 
-        
+
         function [err, predModel] = rivalry(p, data)
             % calculates the expected output and err for simple rivalry, no
             % free parameters so fitting and cross-validation unnecessary.
@@ -628,17 +628,22 @@ classdef b_s
             out = reshape(out, 1, length(out));
             out = (out.^p.pq(1))./(p.Z + out.^p.pq(2));
             out = out-.5;
-                    p.S = abs(p.S); p.w = abs(p.w); % used in their abs 
+            p.S = abs(p.S); p.w = abs(p.w); % used in their abs
         end
         function [err, p, out] = minkowski(p, S, calibrated_data)
             out = ((S(:, 1).^abs(p.n)+S(:, 2).^abs(p.n))/2).^(1/abs(p.n));
             err = sum((out-calibrated_data).^2);
             if p.costflag == 0
                 err = err/length(calibrated_data);
-            end 
+            end
 
         end
-        
+
+        function [err, p, out] = meanmax_weighted(p, S, calibrated_data)
+            out = (1 - p.w) * ( (S(:,1)+S(:,2)) /2 ) + p.w * max(S,[], 2);
+            err = sum((out-calibrated_data).^2);
+        end
+
         function plot_alt_models(p, plotStr, varargin)
             if nargin ==2;      normalize_flag = 0;
             else    normalize_flag = varargin{1};       end
