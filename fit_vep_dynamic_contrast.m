@@ -21,10 +21,10 @@ analysistype    = '';
 %   'ns'        set k1 = k2 = 1, fit Us, normal-sighted only
 
 
-datatype    = 'vep_psychophysics';  %'vep' or 'vep_psychophysics'
+datatype    = 'vep';  %'vep' or 'vep_psychophysics'
 condition   = 'congruent';
 savePlotOn      = 1;        % if 1, saves plots
-pauseForPlots   = 1;        % if 1, waits for you to press enter after each plot before continuing
+pauseForPlots   = 0;        % if 1, waits for you to press enter after each plot before continuing
 
 %%%%% calibration settings/defaults %%%%%
 clean_range = 0.3; % calibration: use trials with this min range
@@ -387,11 +387,16 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
 
     S = [fastSin;slowSin]';
 
-    % generate the predicted model values:
+    % generate the predicted model values for simple mean and max:
     meanModelPrediction = mean(S,2)';
     maxModelPrediction = max(S, [], 2)';
 
     % generate fit/error values
+    p.w = 0.5;
+    p.costflag = 1; p = fit('b_s.meanmax_weighted', p, {'w'}, S, mn_resp_scaled'); % fit mean/max model weight
+    p.costflag = 0;
+    [mnmx_err, ~, mnmx_pred] = b_s.meanmax_weighted(p, S, mn_resp_scaled');
+
     p.n = 1;
     p.costflag = 1; p = fit('b_s.minkowski', p, {'n'}, S, mn_resp_scaled'); % fit minkowski
     p.costflag = 0;
@@ -400,10 +405,16 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
 
     % save these details for later in same format as above
     p.meanResponseScaled = mn_resp_scaled;
+
     p.predModel_meanModel = meanModelPrediction;
     p.meanModelErr = sum((meanModelPrediction-mn_resp_scaled).^2)/length(mn_resp_scaled);
+
     p.predModel_maxModel = maxModelPrediction;
     p.maxModelErr = sum((maxModelPrediction-mn_resp_scaled).^2)/length(mn_resp_scaled);
+
+    p.predModel_mnmxwghtModel = mnmx_pred';
+    p.mnmxwghtModelErr = mnmx_err;
+
     p.predModel_minkModel = mink_pred';
     p.minkModelErr = mink_err;
 
@@ -412,36 +423,37 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
 
     disp(['   .. mean model MSE: ' num2str(round(p.meanModelErr,4))]);
     disp(['   .. max model MSE: ' num2str(round(p.maxModelErr,4))]);
+    disp(['   .. mean/max weighting: ' num2str(round(p.w,2))]);
+     disp(['   .. mean/max weighting MSE: ' num2str(round(p.mnmxwghtModelErr,4))]);
+   
     disp(['   .. Minkowski parameter: ' num2str(round(p.n,2))]);
     disp(['   .. Minkowski model MSE: ' num2str(round(p.minkModelErr,4))]);
 
-    % now adding the simple weighted average
-    % now we DO need to split into left fast/right fast trials
-
-    % some of this repeats steps from above but want to keep it modular in
-    % case things need to differ:
-    wghtavgData = data;
-    diffLE = diff(wghtavgData.experiment.LEcontrast,1,2);
-    diffRE = diff(wghtavgData.experiment.REcontrast,1,2);
-    zeroContrastInLE = [zeros(size(diffLE,1),1) (diffLE == 0)];
-    zeroContrastInRE = [zeros(size(diffRE,1),1) (diffRE == 0)];
-    % index for all monocular trials, left OR right
-    monoTrialsIndex = zeroContrastInLE | zeroContrastInRE;
-    % get rid of them for the averaging:
-    wghtavgData.experiment.LEcontrast(monoTrialsIndex) = NaN;
-    wghtavgData.experiment.REcontrast(monoTrialsIndex) = NaN;
-    wghtavgData.experiment.response(monoTrialsIndex) = NaN;
-    % Use the getErr function to obtain the calibrated joystick position
-    % for this data (we don't need the model prediction for this part)
-    [~, ~, ~, respJoyCalib, ~, ~, ~] = b_s.getErr(p, wghtavgData);
-    respJoyCalib = cell2mat(respJoyCalib'); %reshape to trials x timepoints
-
-
-    p.wa = 0.5;
-    p.costflag = 1; p = fit('b_s.weightedAverage', p, {'wa'}, S, mn_resp_scaled'); % fit minkowski
-    p.costflag = 0;
-    [mink_err, ~, mink_pred] = b_s.minkowski(p, S, mn_resp_scaled');
-    
+%     % now adding the simple weighted average
+%     % now we DO need to split into left fast/right fast trials
+% 
+%     % some of this repeats steps from above but want to keep it modular in
+%     % case things need to differ:
+%     wghtavgData = data;
+%     diffLE = diff(wghtavgData.experiment.LEcontrast,1,2);
+%     diffRE = diff(wghtavgData.experiment.REcontrast,1,2);
+%     zeroContrastInLE = [zeros(size(diffLE,1),1) (diffLE == 0)];
+%     zeroContrastInRE = [zeros(size(diffRE,1),1) (diffRE == 0)];
+%     % index for all monocular trials, left OR right
+%     monoTrialsIndex = zeroContrastInLE | zeroContrastInRE;
+%     % get rid of them for the averaging:
+%     wghtavgData.experiment.LEcontrast(monoTrialsIndex) = NaN;
+%     wghtavgData.experiment.REcontrast(monoTrialsIndex) = NaN;
+%     wghtavgData.experiment.response(monoTrialsIndex) = NaN;
+%     % Use the getErr function to obtain the calibrated joystick position
+%     % for this data (we don't need the model prediction for this part)
+%     [~, ~, ~, respJoyCalib, ~, ~, ~] = b_s.getErr(p, wghtavgData);
+%     respJoyCalib = cell2mat(respJoyCalib'); %reshape to trials x timepoints
+% 
+% 
+%     p.wa = 0.5;
+%     p.costflag = 1; p = fit('b_s.weightedAverage', p, {'wa'}, S, mn_resp_scaled');
+%     
 
 
     %% save it

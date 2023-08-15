@@ -642,6 +642,9 @@ classdef b_s
         function [err, p, out] = meanmax_weighted(p, S, calibrated_data)
             out = (1 - p.w) * ( (S(:,1)+S(:,2)) /2 ) + p.w * max(S,[], 2);
             err = sum((out-calibrated_data).^2);
+            if p.costflag == 0
+                err = err/length(calibrated_data);
+            end
         end
 
         function plot_alt_models(p, plotStr, varargin)

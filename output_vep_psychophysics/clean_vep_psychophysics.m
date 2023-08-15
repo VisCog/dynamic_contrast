@@ -71,7 +71,9 @@ dataDir = [cd filesep 'output_vep_psychophysics_uncleaned'];
 %run([cd '/../subjectList_vep.m']); % puts variable called sID in workspace
 % or individual subjects for when new people added:
 % sID = {'AM_LE_BA_15','AM_LE_LF_16'};
-sID = {'AM_RE_AK_25'}
+sID = {'AM_LE_HH_35', ...
+    'AM_RE_AK_25', ...
+    'NS_JK_17', 'NS_PB_25', 'NS_RA_37', 'NS_YJ_23', 'AM_RE_ID_16'};
 
 for i = 1:length(sID)
 

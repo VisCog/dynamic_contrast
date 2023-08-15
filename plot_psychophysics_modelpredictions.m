@@ -12,8 +12,8 @@ clear
 %  'psychophyics' - motor response, original behavioral paper
 %  'vep' - vep response, data from the vep+beh study
 %  'vep_psychophysics' - motor response, data from the vep+beh study
-%datatype = 'vep_psychophysics';
-datatype = 'vep';
+datatype = 'vep_psychophysics';
+%datatype = 'vep';
 
 %%% condition:
 %  'congruent' or 'orthogonal' - only used for vep+beh study behavior
@@ -208,8 +208,9 @@ if 1
     tmp = p;
     clear p
     p.costflag=0;
-  %  p.n = 8.798;
-  p.n = 0.9799;
+  
+  %p.n = 1.033;
+  p.n = 8.798;
     [mink_err, ~, mink_pred] = b_s.minkowski(p, [fastSin;slowSin]', mean(allSubjectResponse)');
 
     mean_prediction = mean([fastSin;slowSin]);

@@ -55,12 +55,21 @@ end
 %     clear p
 % end
 
-ymaxval = [all_vep.meanModelErr all_psy.meanModelErr ...
-    all_vep.maxModelErr all_psy.maxModelErr ...
-    all_vep.minkModelErr all_psy.minkModelErr];
-ymaxidx = [~isnan(grp_vep) ~isnan(grp_psy) ...
-    ~isnan(grp_vep) ~isnan(grp_psy)...
-    ~isnan(grp_vep) ~isnan(grp_psy)];
+ymaxval = [...
+    all_vep.meanModelErr...
+    all_psy.meanModelErr ...
+    all_vep.maxModelErr...
+    all_psy.maxModelErr ...
+    all_vep.minkModelErr...
+    all_psy.minkModelErr];
+
+ymaxidx = [~isnan(grp_vep)...
+    ~isnan(grp_psy) ...
+    ~isnan(grp_vep) ...
+    ~isnan(grp_psy)...
+    ~isnan(grp_vep) ...
+    ~isnan(grp_psy)];
+
 ymax = max(ymaxval(ymaxidx));
 ymax = ceil(ymax*100)/100;
 
@@ -116,6 +125,25 @@ log_psy_n = log(psy_n);
 disp(['Paired t-test on log-transformed values: t(' num2str(stats.df) ') = ' num2str(abs(stats.tstat),3) ', p = ' num2str(p,3)])
 [p,h,stats] = signrank(vep_n, psy_n,'method','approximate');
 disp(['Paired sign-rank test on original values: Z = ' num2str(abs(stats.zval),3) ', p = ' num2str(p,3)])
+
+
+
+% mean/max weighting
+figure(3); clf; set(gcf, 'Name', 'Mean/max model weighting')
+
+subplot(1,2,1); hold on; grid on;
+quickPlot([all_vep.mnmxwghtModelErr], [all_psy.mnmxwghtModelErr], grp_vep, grp_psy, 0)
+ylabel('Error: mean/max weighting model')
+title('model error')
+%ylim([0 max([all_vep.mnmxwghtModelErr all_psy.mnmxwghtModelErr])])
+set(gca, 'FontSize', 12)
+
+subplot(1,2,2); hold on; grid on;
+quickPlot([all_vep.w], [all_psy.w], grp_vep, grp_psy, 0)
+ylabel('mean vs max weight')
+set(gca, 'FontSize', 12)
+title('model weighting')
+%set(gca, 'YScale', 'log')
 
 
 
