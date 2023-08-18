@@ -630,13 +630,24 @@ classdef b_s
             out = out-.5;
             p.S = abs(p.S); p.w = abs(p.w); % used in their abs
         end
+
         function [err, p, out] = minkowski(p, S, calibrated_data)
             out = ((S(:, 1).^abs(p.n)+S(:, 2).^abs(p.n))/2).^(1/abs(p.n));
             err = sum((out-calibrated_data).^2);
             if p.costflag == 0
                 err = err/length(calibrated_data);
             end
+        end
 
+        function [err, p, out] = relativeEyeWeight(p, S, calibrated_data)
+            % functionally equivalent to the weightedAverage method above,
+            % except formatted like minkowski call so we can easily apply
+            % to average traces 
+            out = p.wa*S(:,1) + (1-p.wa)*S(:, 2);
+            err = sum((out-calibrated_data).^2);
+            if p.costflag == 0
+                err = err/length(calibrated_data);
+            end
         end
 
         function [err, p, out] = meanmax_weighted(p, S, calibrated_data)

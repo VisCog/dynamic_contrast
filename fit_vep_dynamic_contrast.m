@@ -111,7 +111,7 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
     yticks(1:size(data.experiment.response,1));
     if savePlotOn == 1
         % save plot
-        saveas(gcf, [saveResultsDir filesep p.sID '-RasterPlot.fig']);
+        saveas(gcf, [saveResultsDir filesep p.sID '-' datatype '-RasterPlot.fig']);
     end
     if pauseForPlots == 1
         input('updated raster plot - press enter to continue')
@@ -194,7 +194,7 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
         'Interpreter', 'none');
     if savePlotOn == 1
         % save plot
-        saveas(gcf, [saveResultsDir filesep p.sID '-Joystick-Calibration.fig']);
+        saveas(gcf, [saveResultsDir filesep p.sID '-' datatype '-Calibration.fig']);
     end
     if pauseForPlots == 1
         input('updated calibration plot - press enter to continue')
@@ -326,7 +326,7 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
 
 %         %% grab cross-validated error
 %         % ask IF if that freelist is correct for cross-val error (it's
-%         % whatever freeList was set to above on the last step)
+%         % whatever freeList was set to above on the last step of fit)
 %         tmp_p = p;
 %         % using all the data, not just dichoptic
 %         tmp_p.costflag = 0; kfoldErr = b_s.cross_calibrate(tmp_p,data, freeList);
@@ -429,31 +429,54 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
     disp(['   .. Minkowski parameter: ' num2str(round(p.n,2))]);
     disp(['   .. Minkowski model MSE: ' num2str(round(p.minkModelErr,4))]);
 
-%     % now adding the simple weighted average
-%     % now we DO need to split into left fast/right fast trials
-% 
-%     % some of this repeats steps from above but want to keep it modular in
-%     % case things need to differ:
-%     wghtavgData = data;
-%     diffLE = diff(wghtavgData.experiment.LEcontrast,1,2);
-%     diffRE = diff(wghtavgData.experiment.REcontrast,1,2);
-%     zeroContrastInLE = [zeros(size(diffLE,1),1) (diffLE == 0)];
-%     zeroContrastInRE = [zeros(size(diffRE,1),1) (diffRE == 0)];
-%     % index for all monocular trials, left OR right
-%     monoTrialsIndex = zeroContrastInLE | zeroContrastInRE;
-%     % get rid of them for the averaging:
-%     wghtavgData.experiment.LEcontrast(monoTrialsIndex) = NaN;
-%     wghtavgData.experiment.REcontrast(monoTrialsIndex) = NaN;
-%     wghtavgData.experiment.response(monoTrialsIndex) = NaN;
-%     % Use the getErr function to obtain the calibrated joystick position
-%     % for this data (we don't need the model prediction for this part)
-%     [~, ~, ~, respJoyCalib, ~, ~, ~] = b_s.getErr(p, wghtavgData);
-%     respJoyCalib = cell2mat(respJoyCalib'); %reshape to trials x timepoints
-% 
-% 
-%     p.wa = 0.5;
-%     p.costflag = 1; p = fit('b_s.weightedAverage', p, {'wa'}, S, mn_resp_scaled');
-%     
+    % now adding the simple weighted average
+    % now we DO need to split into left fast/right fast trials
+
+    % some of this repeats steps from above but want to keep it modular in
+    % case things need to differ:
+    wghtavgData = data;
+    diffLE = diff(wghtavgData.experiment.LEcontrast,1,2);
+    diffRE = diff(wghtavgData.experiment.REcontrast,1,2);
+    zeroContrastInLE = [zeros(size(diffLE,1),1) (diffLE == 0)];
+    zeroContrastInRE = [zeros(size(diffRE,1),1) (diffRE == 0)];
+    % index for all monocular trials, left OR right
+    monoTrialsIndex = zeroContrastInLE | zeroContrastInRE;
+    % get rid of them for the averaging:
+    wghtavgData.experiment.LEcontrast(monoTrialsIndex) = NaN;
+    wghtavgData.experiment.REcontrast(monoTrialsIndex) = NaN;
+    wghtavgData.experiment.response(monoTrialsIndex) = NaN;
+    % Use the getErr function to obtain the calibrated joystick position
+    % for this data (we don't need the model prediction for this part)
+    [~, ~, ~, respJoyCalib, ~, ~, ~] = b_s.getErr(p, wghtavgData);
+    respJoyCalib = cell2mat(respJoyCalib'); %reshape to trials x timepoints
+
+    % as above we'll get the mean, but this time for le-fast and re-fast trials
+    % separately (data.config.fastEye: 0 = left, 1 = right)
+    mn_resp_LEfast = nanmean(respJoyCalib(data.config.fastEye==0, :));
+    mn_resp_REfast = nanmean(respJoyCalib(data.config.fastEye==1, :));
+
+    % generate the stimuli timecourses:
+    fastSin = ((sin(2*pi*data.t/6)+1)/2);
+    slowSin = ((sin(2*pi*data.t/8)+1)/2);
+
+    % after running through calibration there will be nans at the end due
+    % to delay - these mess up the minkowski fit function - chop off NaNs
+    nan_idx = isnan(mn_resp_LEfast); % RE will have same delay/nan locations
+    mn_resp_LEfast = mn_resp_LEfast(~nan_idx);
+    mn_resp_REfast = mn_resp_REfast(~nan_idx);
+    fastSin = fastSin(~nan_idx);
+    slowSin = slowSin(~nan_idx);
+
+    S_LEfast = [fastSin;slowSin]';
+    S_REfast = [slowSin;fastSin]';
+
+    % doing the lazy but functionally equivalent thing of concatenating
+    mn_resp_cat  = rescale([mn_resp_LEfast mn_resp_REfast], 0, 1);
+    S_cat = [S_LEfast; S_REfast];
+
+    p.wa = 0.5;
+    p.costflag = 1; p = fit('b_s.relativeEyeWeight', p, {'wa'}, S_cat, mn_resp_cat');
+
 
 
     %% save it
