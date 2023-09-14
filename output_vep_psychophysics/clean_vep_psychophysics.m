@@ -71,9 +71,11 @@ dataDir = [cd filesep 'output_vep_psychophysics_uncleaned'];
 %run([cd '/../subjectList_vep.m']); % puts variable called sID in workspace
 % or individual subjects for when new people added:
 % sID = {'AM_LE_BA_15','AM_LE_LF_16'};
-sID = {'AM_LE_HH_35', ...
-    'AM_RE_AK_25', ...
-    'NS_JK_17', 'NS_PB_25', 'NS_RA_37', 'NS_YJ_23', 'AM_RE_ID_16'};
+% sID = {'AM_LE_HH_35', ...
+%     'AM_RE_AK_25', ...
+%     'NS_JK_17', 'NS_PB_25', 'NS_RA_37', 'NS_YJ_23', 'AM_RE_ID_16'};
+
+sID = {'BD_LE_HH_35', 'BD_RE_AK_25', 'NS_XV_19'}
 
 for i = 1:length(sID)
 
@@ -88,7 +90,7 @@ for i = 1:length(sID)
         % AM_RE_KC_24: trial 17 should have, didn't (confirmed); trial 16,18
         %              didnt need to but did (confirmed); weird electrical
         %              interference (?) on trial 28 (confirmed); needs crit=1
-        % AM_RE_XV_19: trial 34 has single-sample blips (confirmed)
+        % NS_XV_19: trial 34 has single-sample blips (confirmed)
         % BD_LE_HU_63: trial 2 didnt need to, did (confirmed)
         % NS_YJ_28: trial 12,44 didn't need to, did (confirmed)
 
@@ -128,8 +130,8 @@ for i = 1:length(sID)
 
         % % % Dealing with special cases % % %
         %
-        if strcmpi(sID{i},'AM_RE_XV_19')
-            % - AM_RE_XV_19's trial 34 has this very strange blip
+        if strcmpi(sID{i},'NS_XV_19')
+            % - NS_XV_19's trial 34 has this very strange blip
             %   must be electrial (joystick isn't moving but has single sample
             %   that is wildly different)
             t = 34;

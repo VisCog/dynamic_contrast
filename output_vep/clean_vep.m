@@ -55,10 +55,10 @@ dataDir = [cd filesep 'output_vep_uncleaned'];
 %run([cd '/../subjectList_vep.m']); % puts variable called sID in workspace
 % or individual subjects for when new people added:
 % sID = {'AM_LE_BA_15','AM_LE_LF_16'};
-sID = {'AM_LE_HH_35', ...
-    'AM_RE_AK_25', ...
-    'NS_JK_17', 'NS_PB_25', 'NS_RA_37', 'NS_YJ_23', 'AM_RE_ID_16'};
+%sID = {'NS_CW_25'}
 
+allChan = 0; % flag to load the all-channels file instead of Oz-only 08/2023
+sID = {'BD_LE_HH_35', 'BD_RE_AK_25', 'NS_XV_19'}
 
 for i = 1:length(sID)
 
@@ -69,7 +69,12 @@ for i = 1:length(sID)
 
     %% load
 
-    files = dir([dataDir filesep sID{i} '*hapvepv*.mat']);
+    if allChan == 1
+        files = dir([dataDir filesep sID{i} '*hapvepv2cz.mat']);
+
+    else
+        files = dir([dataDir filesep sID{i} '*hapvepv.mat']);
+    end
 
     switch size(files,1)
 
@@ -133,21 +138,39 @@ for i = 1:length(sID)
     % joystick position with the VEP
     congruentVep = motorData.congruentMotor;
 
+    % clear the motor data to avoid duplication
+    congruentVep.experiment.binoResponseStart = [];
+    congruentVep.experiment.response = [];
+    congruentVep.experiment.binoResponseEnd = [];
+
     % rescale everything 0-1 (trial-by-trial)
     A = [data.experiment.binoResponseStart data.experiment.response data.experiment.binoResponseEnd];
     rowmin = min(A,[],2);
     rowmax = max(A,[],2);
     A_scaled = rescale(A,'InputMin',rowmin,'InputMax',rowmax);
-    tempStart = A_scaled(:,1:size(data.experiment.binoResponseStart,2));
-    tempResponse = A_scaled(:, size(tempStart,2)+1 : (size(tempStart,2)) + size(data.experiment.response,2));
-    tempEnd = A_scaled(:, size(tempStart, 2)+size(tempResponse, 2)+1 : end);
+
+    if allChan == 1 % 3d
+        tempStart = A_scaled(:,1:size(data.experiment.binoResponseStart,2),:);
+        tempResponse = A_scaled(:, size(tempStart,2)+1 : (size(tempStart,2)) + size(data.experiment.response,2),:);
+        tempEnd = A_scaled(:, size(tempStart, 2)+size(tempResponse, 2)+1 : end,:);
+    else
+        tempStart = A_scaled(:,1:size(data.experiment.binoResponseStart,2));
+        tempResponse = A_scaled(:, size(tempStart,2)+1 : (size(tempStart,2)) + size(data.experiment.response,2));
+        tempEnd = A_scaled(:, size(tempStart, 2)+size(tempResponse, 2)+1 : end);
+    end
 
     congruentVep.experiment.response = tempResponse;
     congruentVep.experiment.binoResponseStart = tempStart;
     congruentVep.experiment.binoResponseEnd = tempEnd;
 
     % make a note
-    str = {'experiment.response contains VEP data'};
+    if allChan == 1
+        congruentVep.experiment.chanlocs = data.chanlocs;
+        str = {'experiment.response contains VEP data, all channels, referenced to Cz'};
+    else
+        str = {'experiment.response contains VEP data'};
+    end
+
     if ~isfield(congruentVep.conditionInfo, 'notes')
         congruentVep.conditionInfo.notes = str;
     else
@@ -156,48 +179,53 @@ for i = 1:length(sID)
 
     clear data motorData
 
-    save([cd filesep sID{i} '-vep-congruent.mat'], 'congruentVep');
-
-    % orthogonal, if it exists
-    if existOrthog == 1
-        disp(' .. processing orthogonal run')
-        data = load([files(2).folder filesep files(2).name]);
-
-        motorData = load([dataDir filesep '..' filesep '..' filesep 'output_vep_psychophysics' ...
-            filesep sID{i} '-motor-orthogonal.mat']);
-        orthogonalVep = motorData.orthogonalMotor;
-
-        % rescale everything 0-1 (trial-by-trial)
-        A = [data.experiment.binoResponseStart data.experiment.response data.experiment.binoResponseEnd];
-        rowmin = min(A,[],2);
-        rowmax = max(A,[],2);
-        A_scaled = rescale(A,'InputMin',rowmin,'InputMax',rowmax);
-        tempStart = A_scaled(:,1:size(data.experiment.binoResponseStart,2));
-        tempResponse = A_scaled(:, size(tempStart,2)+1 : (size(tempStart,2)) + size(data.experiment.response,2));
-        tempEnd = A_scaled(:, size(tempStart, 2)+size(tempResponse, 2)+1 : end);
-
-
-        orthogonalVep.experiment.response = tempResponse;
-        orthogonalVep.experiment.binoResponseStart = tempStart;
-        orthogonalVep.experiment.binoResponseEnd = tempEnd;
-
-        % make a note
-        str = {'experiment.response contains VEP data'};
-        if ~isfield(orthogonalVep.conditionInfo, 'notes')
-            orthogonalVep.conditionInfo.notes = str;
-        else
-            orthogonalVep.conditionInfo.notes{size(orthogonalVep.conditionInfo.notes, 1)+1, :} = str;
-        end
-
-        clear data motorData
-
-        save([cd filesep sID{i} '-vep-orthogonal.mat'], 'orthogonalVep');
-
+    if allChan == 1
+        save([cd filesep sID{i} '-vep-congruent-allchan2cz.mat'], 'congruentVep');
     else
-        disp(' .. no orthogonal run')
-
+        save([cd filesep sID{i} '-vep-congruent.mat'], 'congruentVep');
     end
 
+    % orthogonal, if it exists
+    if allChan ~= 1 % skip orthog for now
+        if existOrthog == 1
+            disp(' .. processing orthogonal run')
+            data = load([files(2).folder filesep files(2).name]);
+
+            motorData = load([dataDir filesep '..' filesep '..' filesep 'output_vep_psychophysics' ...
+                filesep sID{i} '-motor-orthogonal.mat']);
+            orthogonalVep = motorData.orthogonalMotor;
+
+            % rescale everything 0-1 (trial-by-trial)
+            A = [data.experiment.binoResponseStart data.experiment.response data.experiment.binoResponseEnd];
+            rowmin = min(A,[],2);
+            rowmax = max(A,[],2);
+            A_scaled = rescale(A,'InputMin',rowmin,'InputMax',rowmax);
+            tempStart = A_scaled(:,1:size(data.experiment.binoResponseStart,2));
+            tempResponse = A_scaled(:, size(tempStart,2)+1 : (size(tempStart,2)) + size(data.experiment.response,2));
+            tempEnd = A_scaled(:, size(tempStart, 2)+size(tempResponse, 2)+1 : end);
+
+
+            orthogonalVep.experiment.response = tempResponse;
+            orthogonalVep.experiment.binoResponseStart = tempStart;
+            orthogonalVep.experiment.binoResponseEnd = tempEnd;
+
+            % make a note
+            str = {'experiment.response contains VEP data'};
+            if ~isfield(orthogonalVep.conditionInfo, 'notes')
+                orthogonalVep.conditionInfo.notes = str;
+            else
+                orthogonalVep.conditionInfo.notes{size(orthogonalVep.conditionInfo.notes, 1)+1, :} = str;
+            end
+
+            clear data motorData
+
+            save([cd filesep sID{i} '-vep-orthogonal.mat'], 'orthogonalVep');
+
+        else
+            disp(' .. no orthogonal run')
+
+        end
+    end
 
 end
 

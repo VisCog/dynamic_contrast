@@ -23,17 +23,20 @@ clear
 % old = {'BD_YT_63'}
 % new = {'NS_YT_63'}
 
-old = {'AM_RE_CK_23'}
-new = {'AM_RE_AK_25'}
+%old = {'AM_RE_CK_23'}
+%new = {'AM_RE_AK_25'}
 
+old = {'AM_LE_HH_35', 'AM_RE_AK_25', 'AM_RE_XV_19'}
+
+new = {'BD_LE_HH_35', 'BD_RE_AK_25', 'NS_XV_19'}
 
 % being very specific so no one can accidentally run this 
 fileDir = '/Users/bear/Documents/UW/allthegit/dynamic_contrast/output_vep/output_vep_uncleaned/';
 
-for i = 1:size(old,1)
-    fileMove = dir([fileDir old{1} '*.mat']);
+for i = 1:size(old,2)
+    fileMove = dir([fileDir old{i} '*.mat']);
 
-    disp(['Found ' num2str(size(fileMove,1))  ' files, renaming'])
+    disp(['Found ' num2str(size(fileMove,1))  ' files, renaming ' old{i} ' to ' new{i}])
 
     for f = 1:size(fileMove,1)
         tmp = strrep([fileMove(f).folder filesep fileMove(f).name], old{i}, new{i});
