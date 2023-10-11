@@ -58,7 +58,9 @@ dataDir = [cd filesep 'output_vep_uncleaned'];
 %sID = {'NS_CW_25'}
 
 allChan = 0; % flag to load the all-channels file instead of Oz-only 08/2023
-sID = {'BD_LE_HH_35', 'BD_RE_AK_25', 'NS_XV_19'}
+v2 = 1; % flag to load v2
+%sID = {'NS_HJ_24', 'NS_JK_17'}
+sID = {'NS_CW_25', 'NS_YJ_28'}
 
 for i = 1:length(sID)
 
@@ -71,7 +73,8 @@ for i = 1:length(sID)
 
     if allChan == 1
         files = dir([dataDir filesep sID{i} '*hapvepv2cz.mat']);
-
+    elseif v2 == 1
+             files = dir([dataDir filesep sID{i} '*hapvepv2.mat']);  
     else
         files = dir([dataDir filesep sID{i} '*hapvepv.mat']);
     end
@@ -181,6 +184,9 @@ for i = 1:length(sID)
 
     if allChan == 1
         save([cd filesep sID{i} '-vep-congruent-allchan2cz.mat'], 'congruentVep');
+    elseif v2 == 1
+                save([cd filesep sID{i} '-vep-congruent-v2.mat'], 'congruentVep');
+
     else
         save([cd filesep sID{i} '-vep-congruent.mat'], 'congruentVep');
     end

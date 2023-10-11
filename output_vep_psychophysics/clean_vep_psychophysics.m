@@ -75,7 +75,7 @@ dataDir = [cd filesep 'output_vep_psychophysics_uncleaned'];
 %     'AM_RE_AK_25', ...
 %     'NS_JK_17', 'NS_PB_25', 'NS_RA_37', 'NS_YJ_23', 'AM_RE_ID_16'};
 
-sID = {'BD_LE_HH_35', 'BD_RE_AK_25', 'NS_XV_19'}
+sID = {'NS_HJ_24', 'NS_JK_17'}
 
 for i = 1:length(sID)
 

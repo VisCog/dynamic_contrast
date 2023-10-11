@@ -5,8 +5,10 @@ vepFolder = [cd filesep 'fitdata_vep' filesep 'model_fits'];
 psyFolder = [cd filesep 'fitdata_vep_psychophysics' filesep 'model_fits'];
 
 
-vepFiles = dir([vepFolder filesep '*congruent.mat']);
-psyFiles = dir([psyFolder filesep '*congruent.mat']);
+%vepFiles = dir([vepFolder filesep '*congruent.mat']);
+%psyFiles = dir([psyFolder filesep '*congruent.mat']);
+vepFiles = dir([vepFolder filesep 'NS_*congruent.mat']);
+psyFiles = dir([psyFolder filesep 'NS_*congruent.mat']);
 
 
 % grouping variable
@@ -70,7 +72,7 @@ ymaxidx = [~isnan(grp_vep)...
     ~isnan(grp_vep) ...
     ~isnan(grp_psy)];
 
-ymax = max(ymaxval(ymaxidx));
+ymax = max(ymaxval);
 ymax = ceil(ymax*100)/100;
 
 figure(1); clf; set(gcf, 'Name', 'Model error')
