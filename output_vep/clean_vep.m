@@ -52,15 +52,10 @@ dataDir = [cd filesep 'output_vep_uncleaned'];
 %% go thru subjects
 
 % load participants we're fitting:
-%run([cd '/../subjectList_vep.m']); % puts variable called sID in workspace
-% or individual subjects for when new people added:
-% sID = {'AM_LE_BA_15','AM_LE_LF_16'};
-%sID = {'NS_CW_25'}
+run([cd '/../subjectList_vep.m']); % puts variable called sID in workspace
 
-allChan = 0; % flag to load the all-channels file instead of Oz-only 08/2023
-v2 = 1; % flag to load v2
-%sID = {'NS_HJ_24', 'NS_JK_17'}
-sID = {'NS_CW_25', 'NS_YJ_28'}
+allChan = 1; % flag to load the all-channels 2ar file instead of Oz-only
+
 
 for i = 1:length(sID)
 
@@ -72,9 +67,7 @@ for i = 1:length(sID)
     %% load
 
     if allChan == 1
-        files = dir([dataDir filesep sID{i} '*hapvepv2cz.mat']);
-    elseif v2 == 1
-             files = dir([dataDir filesep sID{i} '*hapvepv2.mat']);  
+        files = dir([dataDir filesep sID{i} '*hapvepv2ar.mat']);
     else
         files = dir([dataDir filesep sID{i} '*hapvepv.mat']);
     end
@@ -169,7 +162,7 @@ for i = 1:length(sID)
     % make a note
     if allChan == 1
         congruentVep.experiment.chanlocs = data.chanlocs;
-        str = {'experiment.response contains VEP data, all channels, referenced to Cz'};
+        str = {'experiment.response contains VEP data, all channels, average reference'};
     else
         str = {'experiment.response contains VEP data'};
     end
@@ -183,10 +176,7 @@ for i = 1:length(sID)
     clear data motorData
 
     if allChan == 1
-        save([cd filesep sID{i} '-vep-congruent-allchan2cz.mat'], 'congruentVep');
-    elseif v2 == 1
-                save([cd filesep sID{i} '-vep-congruent-v2.mat'], 'congruentVep');
-
+        save([cd filesep sID{i} '-vep-congruent-allchan.mat'], 'congruentVep');
     else
         save([cd filesep sID{i} '-vep-congruent.mat'], 'congruentVep');
     end

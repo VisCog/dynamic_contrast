@@ -1,7 +1,13 @@
-%% plot_psychophysics_meantrial
+%% plot_psychophysics_modelpredictions
+
+% Has 4 plots, one for each (mean/max/mink/mix)
 %
-% plots the mean response for an individual over all trials
-% Plots "fellow" fast on top, "amblyopic" fast on bottom
+% can plot the mean response for an individual compared to these models
+% (see flag around line 105-110 to turn off/on)
+%
+% and/or can plot the overall group mean response (see flag around line
+% 235-240 to rurn off/on) 
+
 
 clear
 %close all
@@ -104,14 +110,15 @@ for i = 1:length(all_sID) % replace this with the sID # to run only 1 person
 
 
     %% Plot - figure
-    if 0
+    if 0 % flag for plotting all subjects
+
         fs=20;%font size
         fn='Arial';
         labelsOn = 1;
 
         fig1 = figure(1); set(gcf, 'Name', [sID ' (' datatype ')']);
         clf; hold on;
-        tiledlayout(3,2);
+        tiledlayout(4,2);
 
         % Top panel
         nexttile([1 2]); % mean model
@@ -195,23 +202,50 @@ for i = 1:length(all_sID) % replace this with the sID # to run only 1 person
         legend([pM pR], 'Location', 'eastoutside');
         text(0, 1.2, ['model MSE: ' num2str(p.minkModelErr,4) '; p.n = ' num2str(p.n,2)])
 
-        pause;
+        % New, bottom-est panel
+        nexttile([1 2]); % min/max weight model
+        hold on; set(gca, 'FontSize', fs, 'FontName', fn);
+
+        pC1 = plot(data.t, fastSin, 'Color', [51 76 133]/255, ...   %  fast stim
+            'LineStyle',':', 'LineWidth', 3);
+        pC2 = plot(data.t, slowSin, 'Color', [175 134 53]/255, ...  %  slow stim
+            'LineStyle',':', 'LineWidth', 3);
+        pM = plot(t, p.predModel_mnmxwghtModel,...           % model
+            '-', 'LineWidth', 5, 'Color', 'red', 'DisplayName', 'mean (0) max (1) mixture model');
+        pR = plot(t, p.meanResponseScaled,...           % joystick position (calibrated)
+            '-', 'LineWidth', 5, 'Color', 'black', 'DisplayName', 'joystick');
+        %   title('minkowski model')
+
+        % axies
+        xlim([min(data.t)-.5 round(data.t(end))+.5]);
+        xticks([0:6:round(data.t(end))]);
+        ylim([plotYmin plotYmax]);
+        yticks([0 0.5 1]);
+        yticklabels({'0.0', '0.5', '1.0'});
+        if labelsOn == 1
+            xlabel('time (sec)')
+            ylabel('contrast')
+        end
+        legend([pM pR], 'Location', 'eastoutside');
+        text(0, 1.2, ['model MSE: ' num2str(p.minkModelErr,4) '; p.n = ' num2str(p.n,2)])
 
         %%% fig save
         savname = [saveResultsDir filesep sID '-figplot-trialmeans-' condition '.fig'];
         saveas(fig1,savname)
+        input('Press enter for next plot')
     end
 end
 
-if 1
+if 1 % flag for plotting group
 
     tmp = p;
     clear p
     p.costflag=0;
-  
-  %p.n = 1.033;
-  p.n = 8.798;
+
+    p.n = 10; % chose a value to send in here for minkowski
+    p.w = 0.8; % chose a value to send in here for min/max weight
     [mink_err, ~, mink_pred] = b_s.minkowski(p, [fastSin;slowSin]', mean(allSubjectResponse)');
+    [mix_err, ~, mix_pred] = b_s.meanmax_weighted(p, [fastSin;slowSin]', mean(allSubjectResponse)');
 
     mean_prediction = mean([fastSin;slowSin]);
     max_prediction = max([fastSin;slowSin]);
@@ -224,7 +258,7 @@ if 1
 
     fig1 = figure(1); set(gcf, 'Name', ['Mean of all participants (n = ' num2str(length(all_sID)) ', ' datatype ' data)']);
     clf; hold on;
-    tiledlayout(3,2);
+    tiledlayout(4,2);
 
     % Top panel
     nexttile([1 2]); % mean model
@@ -302,5 +336,34 @@ if 1
     end
     legend([pM pR], 'Location', 'eastoutside');
     text(0, 1.2, ['minkowski parameter (p.n) = ' num2str(p.n)], 'FontSize', 12)
+
+ nexttile([1 2]); % new even more bottom panel for mean/max mix
+    hold on; set(gca, 'FontSize', fs, 'FontName', fn);
+
+    pC1 = plot(t, fastSin, 'Color', [51 76 133]/255, ...   %  fast stim
+        'LineStyle',':', 'LineWidth', 3);
+    pC2 = plot(t, slowSin, 'Color', [175 134 53]/255, ...  %  slow stim
+        'LineStyle',':', 'LineWidth', 3);
+    pM = plot(t, mix_pred,...           % model
+        '-', 'LineWidth', 5, 'Color', 'red', 'DisplayName', 'mean (0) max (1) mixture model');
+    pR = plot(t, mean(allSubjectResponse),...           % joystick position (calibrated)
+        '-', 'LineWidth', 5, 'Color', 'black', 'DisplayName', 'joystick');
+
+    % axies
+    xlim([min(t)-.5 round(t(end))+.5]);
+    xticks([0:6:round(t(end))]);
+    ylim([plotYmin plotYmax]);
+    yticks([0 0.5 1]);
+    yticklabels({'0.0', '0.5', '1.0'});
+    if labelsOn == 1
+        xlabel('time (sec)')
+        ylabel('contrast')
+    end
+    legend([pM pR], 'Location', 'eastoutside');
+    text(0, 1.2, ['Mixed model weight (p.w) = ' num2str(p.w)], 'FontSize', 12)
+
+
+    
+
 
 end

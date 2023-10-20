@@ -1,5 +1,10 @@
 % Comparing VEP vs psychophysics fits, NS subjects only, when k1=k2=1 and
 % only the normalization values are fit (calibration is also done)
+%
+% Fall 2023: Consider this archival for now - not currently used for
+% anything 
+
+
 clear
 close all
 

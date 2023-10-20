@@ -11,7 +11,7 @@
 
 %%
 clear
-close all
+%close all
 
 
 %%%%% analysis details: %%%%%%
@@ -21,7 +21,7 @@ analysistype    = '';
 %   'ns'        set k1 = k2 = 1, fit Us, normal-sighted only
 
 
-datatype    = 'vep';  %'vep' or 'vep_psychophysics'
+datatype    = 'vep_psychophysics';  %'vep' or 'vep_psychophysics'
 condition   = 'congruent';
 savePlotOn      = 1;        % if 1, saves plots
 pauseForPlots   = 0;        % if 1, waits for you to press enter after each plot before continuing
@@ -56,7 +56,7 @@ psigma =    1;
 %% set up
 
 subjectList_vep; % puts variable called sID in workspace
-
+%sID = {'NS_AC_48'}
 switch lower(datatype)
     case 'vep'
         rawDataDir = [cd filesep 'output_vep']; % where the raw data live
@@ -179,6 +179,10 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
 
     % fit:
     p.costflag = 1; p = fit('b_s.getErrBinoMean', p, calibFreeList, data);
+
+%     if strcmpi(sID{i} , 'NS_AC_48') % testing, this subject gets huge vep slope
+%         p.slope = 1;
+%     end
 
     % Calculate error, for mean joystick position and for individual trials
     p.costflag = 0;
@@ -341,7 +345,7 @@ for i = 1:length(sID) % replace this with the sID # to run only 1 person
     % unlike above where we analyze individual trials, here we compare the
     % participant's response to each of these three models by looking at
     % their MEAN response over all trials. Additionally, the mean response
-    % is scaled to circumvent regression to the mean problems.
+    % is scaled 0-1 to circumvent regression to the mean problems.
 
     % some of this repeats steps from above but want to keep it modular in
     % case things need to differ:

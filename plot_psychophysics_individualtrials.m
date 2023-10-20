@@ -1,7 +1,7 @@
 % plot_psychophysics_individualtrials
 %
 % plots an example joystick response on a single trial
-%
+% (Script is for behavioral Sci Rep study)
 
 % Plots "fellow" fast on top, "amblyopic" fast on bottom
 clear;
@@ -12,10 +12,9 @@ clear;
 sID = 'BD_G_AU_47';
 %sID = 'BD_LE_G_ES_62';
 %sID = 'AM_LE_L_CJ_38';
-sID = 'AM_RE_IA_24'; %Kelly vep
 
-datatype = 'vep_psychophysics';
-condition = 'congruent';
+datatype = 'psychophysics';
+condition = 'regular';
 
 rawDataDir = [cd filesep 'output_' datatype]; % where the raw data live
 saveResultsDir = [cd filesep 'fitdata_' datatype filesep 'model_fits']; % where to save

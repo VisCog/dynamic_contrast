@@ -2,19 +2,20 @@
 %
 % plots the mean response for an individual over all trials
 % Plots "fellow" fast on top, "amblyopic" fast on bottom
+%
+% Fall 2023: Consider this archival for now - not currently used for
+% anything 
+
 
 clear
 
 %% datatype:
-%  'psychophyics' - motor response, original behavioral paper
 %  'vep' - vep response, data from the vep+beh study
 %  'vep_psychophysics' - motor response, data from the vep+beh study
 %datatype = 'vep_psychophysics';
 datatype = 'vep';
 subjectList_vep; % puts variable called sID in workspace
 all_sID = sID; clear sID;
-tempRM = strcmp(all_sID,'AM_RE_CI_20');
-all_sID = all_sID(~tempRM);
 %datatype = 'psychophysics';
 % condition:
 %  'congruent' or 'orthogonal' - only used for vep+beh study behavior
@@ -22,14 +23,12 @@ all_sID = all_sID(~tempRM);
 condition = 'congruent';
 
 
-all_sID = {'NS_AA_17'};
-
 %% folders
 
 rawDataDir = [cd filesep 'output_' datatype]; % output folder (original data)
 modelFitDir = [cd filesep 'fitdata_' datatype filesep 'model_fits']; % where model fit p is saved
 saveResultsDir = [cd filesep 'fitdata_' datatype filesep 'plots']; % where to save
-for i = 1:length(all_sID) % replace this with the sID # to run only 1 person
+for i = 1%:length(all_sID) % replace this with the sID # to run only 1 person
     sID = all_sID{i};
     disp(sID)
     switch lower(datatype)

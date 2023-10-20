@@ -651,6 +651,7 @@ classdef b_s
         end
 
         function [err, p, out] = meanmax_weighted(p, S, calibrated_data)
+            % this is the "mixture" model
             out = (1 - p.w) * ( (S(:,1)+S(:,2)) /2 ) + p.w * max(S,[], 2);
             err = sum((out-calibrated_data).^2);
             if p.costflag == 0

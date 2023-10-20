@@ -2,6 +2,7 @@
 %
 % plots the mean response for an individual over all trials
 % Plots "fellow" fast on top, "amblyopic" fast on bottom
+% changes from plot_psychophyics_meantrial_if have been incorporated
 
 clear
 close all

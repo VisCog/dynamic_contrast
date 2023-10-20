@@ -8,6 +8,10 @@
 % •	fname: bold source filename for each run, stimulus condition is in the file name
 % •	bold: bold data matrix, [n_vertex, n_time], for each run
 
+%
+% NOTE: THIS IS A COPY of a script for MRI data, the actual MRI data are not saved here  
+
+
 cothresh = .45;
 
 warning('off')
