@@ -52,9 +52,12 @@ dataDir = [cd filesep 'output_vep_uncleaned'];
 %% go thru subjects
 
 % load participants we're fitting:
-run([cd '/../subjectList_vep.m']); % puts variable called sID in workspace
+%run([cd '/../subjectList_vep.m']); % puts variable called sID in workspace
 
-allChan = 1; % flag to load the all-channels 2ar file instead of Oz-only
+%sID = {'NS_HJ_24', 'AM_RE_KR_19', 'AM_LE_RT_26'}
+sID = {'NS_HJ_24'}
+
+allChan = 0; % flag to load the all-channels 2ar file instead of Oz-only
 
 
 for i = 1:length(sID)

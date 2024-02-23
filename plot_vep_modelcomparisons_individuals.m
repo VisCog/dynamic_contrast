@@ -2,8 +2,10 @@
 % Makes 4 figures, one for each model (mean, max, minkowski, mixture)
 % Each figure shows plots for all participant fits
 
-datatype = 'vep';
-%datatype = 'vep_psychophysics';
+%datatype = 'vep';
+datatype = 'vep_psychophysics';
+sGroup = 'NS';
+sCondition = 'congruent';
 
 %% Load relevant data
 all_data = [];
@@ -12,7 +14,7 @@ switch lower(datatype)
 
     case 'vep'
         vepFolder = [cd filesep 'fitdata_vep' filesep 'model_fits'];     % vep
-        vepFiles = dir([vepFolder filesep 'NS_*congruent.mat']);  % grab NS only right now
+        vepFiles = dir([vepFolder filesep sGroup '_*' sCondition '.mat']);  % grab NS only right now
         for i = 1:length(vepFiles)
             load([vepFiles(i).folder filesep vepFiles(i).name]);
             all_data = [all_data p];
@@ -21,7 +23,7 @@ switch lower(datatype)
 
     case 'vep_psychophysics'
         psyFolder = [cd filesep 'fitdata_vep_psychophysics' filesep 'model_fits']; %psychophysics
-        psyFiles = dir([psyFolder filesep 'NS_*congruent.mat']);
+        psyFiles = dir([psyFolder filesep sGroup '_*' sCondition '.mat']);
         for i = 1:length(psyFiles)
             load([psyFiles(i).folder filesep psyFiles(i).name]);
             all_data = [all_data p];
@@ -39,7 +41,7 @@ numRows = ceil(n / 4);
 
 %% Mean model
 fig4 = figure(4); clf; hold on;
-set(gcf, "Name", [datatype ' data: Mean model fits'])
+set(gcf, "Name", [datatype ', ' sCondition ' data: Mean model fits'])
 for i = 1:n
     subplot(numRows, 4, i); hold on;
     oneSubjectPlot(all_data(i).predModel_meanModel, all_data(i).meanResponseScaled, all_data(i).sID)
@@ -51,7 +53,7 @@ text(800,.6, 'response in black', 'color', 'k')
 
 %% Max model
 fig5 = figure(5); clf; hold on;
-set(gcf, "Name", [datatype ' data: Max model fits'])
+set(gcf, "Name", [datatype ', ' sCondition ' data: Max model fits'])
 for i = 1:n
     subplot(numRows, 4, i); hold on;
     oneSubjectPlot(all_data(i).predModel_maxModel, all_data(i).meanResponseScaled, all_data(i).sID)
@@ -64,7 +66,7 @@ text(800,.6, 'response in black', 'color', 'k')
 
 %% Minkwoski
 fig6 = figure(6); clf; hold on;
-set(gcf, "Name", [datatype ' data: Minkowski fits'])
+set(gcf, "Name", [datatype ', ' sCondition ' data: Minkowski fits'])
 for i = 1:n
     subplot(numRows, 4, i); hold on;
     oneSubjectPlot(all_data(i).predModel_minkModel, all_data(i).meanResponseScaled, all_data(i).sID)
@@ -77,7 +79,7 @@ text(800,.6, 'response in black', 'color', 'k')
 
 %% Mean/max weighting
 fig7 = figure(7); clf; hold on;
-set(gcf, "Name", [datatype ' data: mean/max mixture model fits'])
+set(gcf, "Name", [datatype ', ' sCondition ' data: mean/max mixture model fits'])
 for i = 1:n
     subplot(numRows, 4, i); hold on;
     oneSubjectPlot(all_data(i).predModel_mnmxwghtModel, all_data(i).meanResponseScaled, all_data(i).sID)
@@ -89,6 +91,32 @@ end
 text(800,.8, 'Mean/max weighting in red (1-w)*mean + (w)*max', 'color', 'r')
 text(800,.6, 'response in black', 'color', 'k')
 
+%% Minowski weighted
+% 
+% fig8= figure(8); clf; hold on;
+% set(gcf, "Name", [datatype ', ' sCondition ' data: Weighted Minkowski fits'])
+% for i = 1:n
+%     subplot(numRows, 4, i); hold on;
+%     oneSubjectPlot(all_data(i).predModel_minkwghtModel, all_data(i).meanResponseScaled, all_data(i).sID)
+%     text(200, 0.2, ['m = ' num2str(all_data(i).mink_wghtd_p,2) ' w = ' num2str(all_data(i).mink_wghtd_w,2) ], 'color', 'r')
+%     text(200, 0.1, ['err = ' num2str(all_data(i).minkwghtModelErr,2)], 'color', 'b')
+%     ylabel('contrast');
+% end
+% text(800,.8, 'Minkowski prediction in red ([(w)L^m+(2-w)R^m]/2)^(^1^/^m^)', 'color', 'r')
+% text(800,.6, 'response in black', 'color', 'k')
+
+%% weghted mean
+fig9=figure(9); clf; hold on;
+set(gcf, "Name", [datatype ', ' sCondition ' data: Weighted Mean fits'])
+for i = 1:n
+    subplot(numRows, 4, i); hold on;
+    oneSubjectPlot(all_data(i).predModel_wghtAvg, all_data(i).meanResponseScaledByEye, all_data(i).sID)
+    text(200, 0.2, ['m = ' num2str(all_data(i).wa,2) ' w = ' num2str(all_data(i).wa,2) ], 'color', 'r')
+    text(200, 0.1, ['err = ' num2str(all_data(i).wghtAvg_err,2)], 'color', 'b')
+    ylabel('contrast');
+end
+text(800,.8, 'Weighted average in red w*L + (1-w)*R', 'color', 'r')
+text(800,.6, 'response in black', 'color', 'k')
 
 %%
 

@@ -196,7 +196,10 @@ printAnovaByEyeTable <- function(data, selectCols) {
   return(list(returnStr, pGrp, pEye, pIxn, pPh1, pPh2, out6, out7, out8))
 }
 printRegressionResults <-function(dvCol,groupCol,modelParamCol){
-  # output order: group alone, parameter alone, parameter after controlling for grp
+  # output order:
+  # 1 - dv as a function of group alone
+  # 2 - dv as a function of modelParam alone
+  # 3 - dv as a function of parameter after controlling for groupCol
   mod_group <- lm(dvCol ~ groupCol)
   mod_param <- lm(dvCol ~ modelParamCol)
   mod_group_param <- lm(dvCol ~ groupCol + modelParamCol)
@@ -263,6 +266,65 @@ printRegressionResults <-function(dvCol,groupCol,modelParamCol){
 }
 printModelAnovaTable <- function(data, selectCols) {
   #  compares models
+  #  label out is always second model listed
+  #  example selectCols = c('softmax', 'meanJoystick')
+  #  assumes your condition/group var is called group
+  data_subset <- subset(data, select = c('sID', 'group', selectCols))
+  
+  data_long <- gather(data_subset, modeltype, mse, 3:4)
+  data_long$sID <- factor(data_long$sID)
+  data_long$modeltype <- factor(data_long$modeltype)
+  
+  # lmer/lme4/lmerTest notes:
+  # call would be 
+  # mod <- lmer(mse ~ modeltype + (1|sID) + (1|group) + (1|modeltype:group), data=data_long)
+  # fixed <- anova(mod)
+  # random <- ranova(mod)
+  # however not sure how to get F-tests for random (i.e. ranova() does not provide them)
+  
+  
+  res.aov <- anova_test(data=data_long, dv=mse, wid = sID, between = group, within = modeltype)
+  tmp <- get_anova_table(res.aov)
+  
+  indGrp <- which(tmp[,'Effect'] == 'group')
+  indMod <- which(tmp[,'Effect'] == 'modeltype')
+  indIxn <- which(tmp[,'Effect'] == 'group:modeltype')
+  
+  if (tmp[indGrp,'p'] < 0.0001) {
+    pGrp <- 'p < 0.0001'
+  } else {
+    pGrp <- paste('p =', signif(tmp[indGrp,'p'],2))
+  }
+  
+  if (tmp[indMod,'p'] < 0.0001) {
+    pMod <- 'p < 0.0001'
+  } else {
+    pMod <- paste('p =', signif(tmp[indMod,'p'],2))
+  }
+  
+  if (tmp[indIxn,'p'] < 0.0001) {
+    pIxn <- 'p < 0.0001'
+  } else {
+    pIxn <- paste('p =', signif(tmp[indIxn,'p'],2))
+  }
+  
+  out1 <- paste0("F(", tmp[indGrp,'DFn'], ",", tmp[indGrp,'DFd'],
+                 ") = ", round(tmp[indGrp,'F'],2), ", ", pGrp)
+  
+  out2 <- paste0("F(", tmp[indMod,'DFn'], ",", tmp[indMod,'DFd'],
+                 ") = ", round(tmp[indMod,'F'],2), ", ", pMod)
+  
+  out3 <- paste0("F(", tmp[indIxn,'DFn'], ",", tmp[indIxn,'DFd'],
+                 ") = ", round(tmp[indIxn,'F'],2), ", ", pIxn)
+  
+  dfout <- data.frame(model=out2, group=out1, interaction=out3)
+  rownames(dfout) <- selectCols[2]
+  return(dfout)
+}
+
+printBehVepAnovaTable <- function(data, selectCols) {
+  #  compares VEP and behavioral data
+  #  for ease send it a joined dataframe, eg:
   #  label out is always second model listed
   #  example selectCols = c('softmax', 'meanJoystick')
   #  assumes your condition/group var is called group
@@ -556,11 +618,13 @@ RegressPlot <- function(x, y, group, legendTF, xlab, ylab, xlim, ylim) {
   mod_all <-lm(y ~ group + x)
   coefs_all <- coef(mod_all)
   
-  b_all <- coefs_all[4]
+  b_all <- tail(coefs_all,1)
   a_NS <- coefs_all[1]
   a_AM <- coefs_all[1] + coefs_all[2]
-  a_BD <- coefs_all[1] + coefs_all[3]
-  
+  if (any(levels(data_subset$group) == 'BD')) {
+  a_BD <- coefs_all[1] + coefs_all[3]    
+  }
+
   # plot the x,y data
   plot(x,y,                 
        xlab = xlab,
@@ -583,11 +647,13 @@ RegressPlot <- function(x, y, group, legendTF, xlab, ylab, xlim, ylim) {
          lty=2, 
          col=colAM_solid)   
   
+  if (any(levels(data_subset$group) == 'BD')) {
   # strab
   abline(a=a_BD, b=b_all, 
          lwd=1.5, 
          lty=3, 
          col=colBD_solid)   
+  }
   
   # control
   abline(a = a_NS, b = b_all, 
@@ -601,9 +667,11 @@ RegressPlot <- function(x, y, group, legendTF, xlab, ylab, xlim, ylim) {
   points(x[group == 'AM'], y[group == 'AM'],
          pch = pchAM, col=colAM)
   
+  if (any(levels(data_subset$group) == 'BD')) {
   # add strab
   points(x[group == 'BD'], y[group == 'BD'],
          pch = pchBD, col=colBD)
+  }
   
   # add control
   points(x[group == 'NS'], y[group == 'NS'],
@@ -611,13 +679,24 @@ RegressPlot <- function(x, y, group, legendTF, xlab, ylab, xlim, ylim) {
   
   if (legendTF == TRUE) {
     legendloc <- 'bottomleft'
-    legend(legendloc, legend=c('amblyopia', 'strabismus', 'control'),
-           col=c(colAM_solid, colBD_solid, colNS_solid),
-           pch=c(pchAM, pchBD, pchNS),
+    if (any(levels(data_subset$group) == 'BD')) {
+      legendstr <- c('amblyopia', 'strabismus', 'control')
+      cols=c(colAM_solid, colBD_solid, colNS_solid)
+      pchs=c(pchAM, pchBD, pchNS)
+      ltys=c(2,3,4)
+    } else {
+      legendstr <- c('amblyopia', 'control')
+      cols=c(colAM_solid, colNS_solid)
+      pchs=c(pchAM, pchNS)
+      ltys=c(2,4)
+    }
+    legend(legendloc, legend=legendstr,
+           col=cols,
+           pch=pchs,
            bty='n',
            inset = c(0.05, 0),
            y.intersp = 0.7,
-           lwd=c(1,1), lty=c(2,3,4), cex=0.7)
+           lwd=c(1,1), lty=ltys, cex=0.7)
   }
 }
 

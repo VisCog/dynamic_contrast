@@ -1,30 +1,34 @@
 clear
 
+sGroup = 'AM';
+sCondition = 'congruent';
+
 %%% load files
 vepFolder = [cd filesep 'fitdata_vep' filesep 'model_fits'];     % vep
 psyFolder = [cd filesep 'fitdata_vep_psychophysics' filesep 'model_fits']; %psychophysics
 
-%vepFiles = dir([vepFolder filesep '*congruent.mat']);
-%psyFiles = dir([psyFolder filesep '*congruent.mat']);
-vepFiles = dir([vepFolder filesep 'NS_*congruent.mat']);  % grab NS only right now
-psyFiles = dir([psyFolder filesep 'NS_*congruent.mat']);
+vepFiles = dir([vepFolder filesep sGroup '_*' sCondition '.mat']);  % grab sGroup
+psyFiles = dir([psyFolder filesep sGroup '_*' sCondition '.mat']);
 
-% grouping variable
-idx_psy_ns = find(cellfun(@(x) strcmpi(x(1:2),'NS'), {psyFiles.name}));
-idx_psy_am = find(cellfun(@(x) strcmpi(x(1:2),'AM'), {psyFiles.name}));
-idx_psy_bd = find(cellfun(@(x) strcmpi(x(1:2),'BD'), {psyFiles.name}));
-grp_psy = nan(size(psyFiles));
-%grp_psy(idx_psy_am) = 1;
-%grp_psy(idx_psy_bd) = 2;
-grp_psy(idx_psy_ns) = 3; % grabbing NS only right now
+% % grouping variable
+% idx_psy_ns = find(cellfun(@(x) strcmpi(x(1:2),'NS'), {psyFiles.name}));
+% idx_psy_am = find(cellfun(@(x) strcmpi(x(1:2),'AM'), {psyFiles.name}));
+% idx_psy_bd = find(cellfun(@(x) strcmpi(x(1:2),'BD'), {psyFiles.name}));
+% grp_psy = nan(size(psyFiles));
+% %grp_psy(idx_psy_am) = 1;
+% %grp_psy(idx_psy_bd) = 2;
+% grp_psy(idx_psy_ns) = 3; % grabbing NS only right now
+% 
+% idx_vep_ns = find(cellfun(@(x) strcmpi(x(1:2),'NS'), {vepFiles.name}));
+% idx_vep_am = find(cellfun(@(x) strcmpi(x(1:2),'AM'), {vepFiles.name}));
+% idx_vep_bd = find(cellfun(@(x) strcmpi(x(1:2),'BD'), {vepFiles.name}));
+% grp_vep = nan(size(vepFiles));
+% %grp_vep(idx_psy_am) = 1;
+% %grp_vep(idx_psy_bd) = 2;
+% grp_vep(idx_psy_ns) = 3;
 
-idx_vep_ns = find(cellfun(@(x) strcmpi(x(1:2),'NS'), {vepFiles.name}));
-idx_vep_am = find(cellfun(@(x) strcmpi(x(1:2),'AM'), {vepFiles.name}));
-idx_vep_bd = find(cellfun(@(x) strcmpi(x(1:2),'BD'), {vepFiles.name}));
-grp_vep = nan(size(vepFiles));
-%grp_vep(idx_psy_am) = 1;
-%grp_vep(idx_psy_bd) = 2;
-grp_vep(idx_psy_ns) = 3;
+grp_psy = ones(size(psyFiles))*3; % legacy index
+grp_vep = ones(size(vepFiles))*3;
 
 % load fits and compile
 all_psy = [];
@@ -42,72 +46,90 @@ end
 
 % plot lims
 ymaxval = [...
-    all_vep.meanModelErr...
-    all_psy.meanModelErr ...
-    all_vep.maxModelErr...
-    all_psy.maxModelErr ...
-    all_vep.minkModelErr...
-    all_psy.minkModelErr];
+    all_vep.meanModel_err...
+    all_psy.meanModel_err ...
+    all_vep.maxModel_err...
+    all_psy.maxModel_err];
+%     all_vep.minkModelErr...
+%     all_psy.minkModelErr];
 ymax = max(ymaxval);
 ymax = ceil(ymax*100)/100;
 
 
 %% Fig 1: Model error
-figure(1); clf; set(gcf, 'Name', 'Model error')
+figure(1); clf; set(gcf, 'Name', ['Model error (' sGroup ': ' sCondition ')']);
 nplots = 4;
 
-%%%%% plot 1: error for mean model fit
+%%%%% plot: error for mean model fit
 
 subplot(1,nplots,1); hold on; grid on; 
-quickPlot([all_vep.meanModelErr], [all_psy.meanModelErr], grp_vep, grp_psy, 0);
+quickPlot([all_vep.meanModel_err], [all_psy.meanModel_err], grp_vep, grp_psy, 0);
 ylabel('MSE: mean model'); title('mean model');
 ylim([0 ymax]); set(gca, 'FontSize', 12);
 
 % label unusual values with sID in case want to investigate
-[ovals, osids] = checkoutlier([all_vep.meanModelErr], {all_vep.sID}); 
+[ovals, osids] = checkoutlier([all_vep.meanModel_err], {all_vep.sID}); 
 for o = 1:length(ovals), text(1.1, ovals(o), osids{o}, 'Interpreter','none'), end
-[ovals, osids] = checkoutlier([all_psy.meanModelErr], {all_psy.sID});
+[ovals, osids] = checkoutlier([all_psy.meanModel_err], {all_psy.sID});
 for o = 1:length(ovals), text(2.1, ovals(o), osids{o}, 'Interpreter','none'), end
 
-%%%%% plot 2: error for max model fit
+%%%%% plot: error for max model fit
 
 subplot(1,nplots,2); hold on; grid on;
-quickPlot([all_vep.maxModelErr], [all_psy.maxModelErr], grp_vep, grp_psy, 0);
+quickPlot([all_vep.maxModel_err], [all_psy.maxModel_err], grp_vep, grp_psy, 0);
 ylabel('MSE: max model'); title('max model');
 ylim([0 ymax]); set(gca, 'FontSize', 12);
 
-[ovals, osids] = checkoutlier([all_vep.maxModelErr], {all_vep.sID});
+[ovals, osids] = checkoutlier([all_vep.maxModel_err], {all_vep.sID});
 for o = 1:length(ovals), text(1.1, ovals(o), osids{o}, 'Interpreter','none'), end
-[ovals, osids] = checkoutlier([all_psy.maxModelErr], {all_psy.sID});
+[ovals, osids] = checkoutlier([all_psy.maxModel_err], {all_psy.sID});
 for o = 1:length(ovals), text(2.1, ovals(o), osids{o}, 'Interpreter','none'), end
 
 %%%%% plot 3: error for minkowski model fit
-
+ 
 subplot(1,nplots,3); hold on; grid on;
-quickPlot([all_vep.minkModelErr], [all_psy.minkModelErr], grp_vep, grp_psy, 0);
-ylabel('MSE: minkowski model'); title('minkowski model')
+% quickPlot([all_vep.minkModelErr], [all_psy.minkModelErr], grp_vep, grp_psy, 0);
+% ylabel('MSE: minkowski model'); title('minkowski model')
+% ylim([0 ymax]); set(gca, 'FontSize', 12);
+% 
+% [ovals, osids] = checkoutlier([all_vep.minkModelErr], {all_vep.sID});
+% for o = 1:length(ovals), text(1.1, ovals(o), osids{o}, 'Interpreter','none'), end
+% [ovals, osids] = checkoutlier([all_psy.minkModelErr], {all_psy.sID});
+% for o = 1:length(ovals), text(2.1, ovals(o), osids{o}, 'Interpreter','none'), end
+
+quickPlot([all_vep.meanModel_wghtd_err], [all_psy.meanModel_wghtd_err], grp_vep, grp_psy, 0);
+ylabel('MSE: weighted mean model'); title('weighted (linear attn) mean model')
 ylim([0 ymax]); set(gca, 'FontSize', 12);
 
-[ovals, osids] = checkoutlier([all_vep.minkModelErr], {all_vep.sID});
+[ovals, osids] = checkoutlier([all_vep.meanModel_wghtd_err], {all_vep.sID});
 for o = 1:length(ovals), text(1.1, ovals(o), osids{o}, 'Interpreter','none'), end
-[ovals, osids] = checkoutlier([all_psy.minkModelErr], {all_psy.sID});
+[ovals, osids] = checkoutlier([all_psy.meanModel_wghtd_err], {all_psy.sID});
 for o = 1:length(ovals), text(2.1, ovals(o), osids{o}, 'Interpreter','none'), end
 
 %%%%% plot 4: error for mixture (mean/max) model fit
 
 subplot(1,nplots,4); hold on; grid on;
-quickPlot([all_vep.mnmxwghtModelErr], [all_psy.mnmxwghtModelErr], grp_vep, grp_psy, 0);
-ylabel('MSE: mixture (mean/max) model'); title('mixture (mean/max) model')
+% quickPlot([all_vep.mnmxwghtModelErr], [all_psy.mnmxwghtModelErr], grp_vep, grp_psy, 0);
+% ylabel('MSE: mixture (mean/max) model'); title('mixture (mean/max) model')
+% ylim([0 ymax]); set(gca, 'FontSize', 12);
+% 
+% [ovals, osids] = checkoutlier([all_vep.mnmxwghtModelErr], {all_vep.sID});
+% for o = 1:length(ovals), text(1.1, ovals(o), osids{o}, 'Interpreter','none'), end
+% [ovals, osids] = checkoutlier([all_psy.mnmxwghtModelErr], {all_psy.sID});
+% for o = 1:length(ovals), text(2.1, ovals(o), osids{o}, 'Interpreter','none'), end
+
+quickPlot([all_vep.maxModel_wghtd_err], [all_psy.maxModel_wghtd_err], grp_vep, grp_psy, 0);
+ylabel('MSE: weighted max model'); title('weighted (linear attn) max model')
 ylim([0 ymax]); set(gca, 'FontSize', 12);
 
-[ovals, osids] = checkoutlier([all_vep.mnmxwghtModelErr], {all_vep.sID});
+[ovals, osids] = checkoutlier([all_vep.maxModel_wghtd_err], {all_vep.sID});
 for o = 1:length(ovals), text(1.1, ovals(o), osids{o}, 'Interpreter','none'), end
-[ovals, osids] = checkoutlier([all_psy.mnmxwghtModelErr], {all_psy.sID});
+[ovals, osids] = checkoutlier([all_psy.maxModel_wghtd_err], {all_psy.sID});
 for o = 1:length(ovals), text(2.1, ovals(o), osids{o}, 'Interpreter','none'), end
 
 %% Fig 2: Parameter fits
 
-figure(2); clf; set(gcf, 'Name', 'Parameter fits')
+figure(2); clf; set(gcf, 'Name', ['Parameter fits (' sGroup ': ' sCondition ')']);
 hold on; grid on;
 
 %%%%% minkowski
@@ -141,6 +163,28 @@ disp('MIXTURE MODEL FITS: ')
 tmp = [all_vep.w]; vep_w = tmp(grp_vep==3); clear tmp;
 tmp = [all_psy.w]; psy_w = tmp(grp_vep==3); clear tmp;
 printValsToCommandLine(vep_w, psy_w, 3);
+
+
+%% weighted mean
+figure(3); clf; set(gcf, 'Name', ['Weighted mean fits (' sGroup ': ' sCondition ')']);
+hold on; grid on;
+subplot(1,2,1); hold on; grid on;
+quickPlot([all_vep.wa], [all_psy.wa], grp_vep, grp_psy, 0);
+ylabel('w*L + (1-w)*R'); title('weighted average')
+set(gca, 'FontSize', 12);
+[ovals, osids] = checkoutlier([all_vep.wa], {all_vep.sID});
+for o = 1:length(ovals), text(1.1, ovals(o), osids{o}, 'Interpreter','none'), end
+[ovals, osids] = checkoutlier([all_psy.wa], {all_psy.sID});
+for o = 1:length(ovals), text(2.1, ovals(o), osids{o}, 'Interpreter','none'), end
+% print values to command line
+disp('WEIGHTED AVG FITS: ')
+tmp = [all_vep.wa]; vep_wa = tmp(grp_vep==3); clear tmp;
+tmp = [all_psy.wa]; psy_wa = tmp(grp_vep==3); clear tmp;
+printValsToCommandLine(vep_wa, psy_wa, 3);
+
+
+
+
 
 %% Subfunctions for plotting
 function quickPlot(vepvector, psyvector, vepgroup, psygroup, legendtf)

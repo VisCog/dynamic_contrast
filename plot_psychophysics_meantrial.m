@@ -13,8 +13,8 @@ close all
 %  'psychophyics' - motor response, original behavioral paper
 %  'vep' - vep response, data from the vep+beh study
 %  'vep_psychophysics' - motor response, data from the vep+beh study
-datatype = 'vep';
-%datatype = 'vep_psychophysics';
+%datatype = 'vep';
+datatype = 'vep_psychophysics';
 %datatype = 'psychophysics';
 
 %%% condition:
@@ -39,13 +39,15 @@ analysistype = '';
 %all_sID = sID; clear sID;
 
 %%% select one subject:
-all_sID = {'NS_JX_19'};
+%all_sID = {'NS_JX_19'};
 
 if strcmpi(analysistype, 'ns')
     % select normally-sighted participants only:
     idx = cellfun(@(x) strcmpi(x(1:2),'NS'), all_sID);
     all_sID = all_sID(idx);
 end
+
+all_sID = sID(2)
 
 
 %% folders
@@ -146,7 +148,7 @@ for i = 1:length(all_sID) % replace this with the sID # to run only 1 person
     modelLEfast = predModelMAT(LEfastTrials,:);
     modelREfast = predModelMAT(REfastTrials,:);
 
-    % if change
+    % if change (rescales between 0-1)
     mn_respREfast = nanmean(respREfast);
     mn_modelREfast = nanmean(modelREfast);
     mn_modelREfast = mn_modelREfast-(nanmean(mn_modelREfast)  - nanmean(respREfast));
@@ -275,4 +277,45 @@ for i = 1:length(all_sID) % replace this with the sID # to run only 1 person
     %%% fig save
     savname = [saveResultsDir filesep sID '-figplot-trialmeans.fig'];
     saveas(fig1,savname)
+
+    fig2 = figure(2); clf; hold on; % fig 2 = left eye fast condition
+    tmpLEfast = mn_respLEfast(round(p.delay/diff(data.t(1:2))):end);
+    tmpLEsin = fastSin(1:end-round(p.delay/diff(data.t(1:2)))+1);
+    tmpREsin = slowSin(1:end-round(p.delay/diff(data.t(1:2)))+1);
+
+    subplot(2,2,1); % plot 1: LE stim vs responsse
+    scatter(tmpLEsin, tmpLEfast);
+    xlabel('LE contrast'), ylabel('response');
+    subplot(2,2,2); % plot 2: RE stim vs response
+    scatter(tmpREsin, tmpLEfast);
+    xlabel('LEcontrast'), ylabel('response');
+
+    subplot(2,2,3);
+    scatter3(tmpLEsin, tmpREsin, tmpLEfast);
+    xlabel('LE contrast'); ylabel('RE contrast'); zlabel('Response')
+
+    LEfastMat = [tmpLEsin; tmpREsin; tmpLEfast];
+
+    fig3 = figure(3); clf; hold on; % fig 3 = right eye fast condition
+    tmpREfast = mn_respREfast(round(p.delay/diff(data.t(1:2))):end);
+    tmpLEsin = slowSin(1:end-round(p.delay/diff(data.t(1:2)))+1);
+    tmpREsin = fastSin(1:end-round(p.delay/diff(data.t(1:2)))+1);
+
+    subplot(2,2,1); % plot 1: LE stim vs responsse
+    scatter(tmpLEsin, tmpREfast);
+    xlabel('LE contrast'), ylabel('response');
+    subplot(2,2,2); % plot 2: RE stim vs response
+    scatter(tmpREsin, tmpREfast);
+    xlabel('LEcontrast'), ylabel('response');
+
+
+    subplot(2,2,3);
+    scatter3(tmpLEsin, tmpREsin, tmpREfast);
+    xlabel('LE contrast'); ylabel('RE contrast'); zlabel('Response')
+
+    REfastMat = [tmpLEsin; tmpREsin; tmpREfast];
+
+
+    
+
 end

@@ -639,6 +639,19 @@ classdef b_s
             end
         end
 
+        function [err, p, out] = minkowski_weighted(p, S, calibrated_data)
+            out = ((p.mink_wghtd_w * S(:, 1).^abs(p.mink_wghtd_p) + ...
+                (2-p.mink_wghtd_w) * S(:, 2).^abs(p.mink_wghtd_p)) ...
+                / 2).^(1/abs(p.mink_wghtd_p));
+
+            err = sum((out-calibrated_data).^2);
+            if p.costflag == 0
+                err = err/length(calibrated_data);
+            end
+        end
+
+
+
         function [err, p, out] = relativeEyeWeight(p, S, calibrated_data)
             % functionally equivalent to the weightedAverage method above,
             % except formatted like minkowski call so we can easily apply
